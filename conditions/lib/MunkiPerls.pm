@@ -299,14 +299,14 @@ sub run_condition {
         return 0;
     }
 
+    $output ||= File::Spec->catfile(managed_install_dir(), 'ConditionalItems.plist');
     my $debug = $verbose || ($ENV{MUNKI_PERLS_DEBUG} || '') eq '1';
     print STDERR "munki-perls: collecting facts\n" if $debug;
-    my $facts = eval { $callback->() };
+    my $facts = eval { $callback->({ output_path => $output }) };
     if (!$facts || $@) {
         print STDERR "munki-perls: fact collection failed\n";
         return 1;
     }
-    $output ||= File::Spec->catfile(managed_install_dir(), 'ConditionalItems.plist');
     my $saved = eval { write_facts($output, $facts) };
     if (!$saved || $@) {
         print STDERR "munki-perls: plist update failed\n";

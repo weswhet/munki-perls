@@ -5,7 +5,8 @@ use warnings;
 use Test::More;
 use lib 'conditions/lib';
 use MunkiPerls::Upgrade qw(
-    collect_hardware_snapshot evaluate_upgrade_facts version_compare
+    collect_hardware_snapshot evaluate_upgrade_fact evaluate_upgrade_facts
+    version_compare
 );
 
 sub facts {
@@ -110,5 +111,38 @@ my $modern_vm = collect_hardware_snapshot(
 ok($modern_vm->{is_virtual}, 'Big Sur and newer use kern.hv_vmm_present');
 
 is(scalar(keys %{facts()}), 10, 'consolidated evaluator emits ten upgrade facts');
+
+for my $snapshot (
+    {
+        version => '10.13.6', model => 'MacBookPro9,1',
+        board_id => 'Mac-06F11F11946D27C5', hardware_target => '',
+        is_virtual => 0,
+    },
+    {
+        version => '14', model => 'unsupported', board_id => 'unsupported',
+        hardware_target => 'unsupported', is_virtual => 1,
+    },
+    {
+        version => '26', model => 'MacBookPro16,4', board_id => '',
+        hardware_target => 'J180dAP', is_virtual => 0,
+    },
+) {
+    my $aggregate = evaluate_upgrade_facts($snapshot);
+    for my $key (sort keys %{$aggregate}) {
+        is(
+            evaluate_upgrade_fact($key, $snapshot),
+            $aggregate->{$key},
+            "$key single-fact evaluation matches aggregate compatibility API"
+        );
+    }
+}
+
+my $unknown = eval {
+    evaluate_upgrade_fact('unknown_upgrade_supported', {
+        version => '14', is_virtual => 1,
+    });
+    1;
+};
+ok(!$unknown, 'single-fact evaluator rejects unknown keys');
 
 done_testing();

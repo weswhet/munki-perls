@@ -6,16 +6,23 @@ use warnings;
 no warnings 'qw';
 
 use Exporter qw(import);
+use Fcntl qw(:DEFAULT :flock);
 use Scalar::Util qw(blessed);
 
 use MunkiPerls qw(
-    foundation_string objc_string parse_plist_output run_command system_version
+    foundation_dictionary foundation_string load_plist_file objc_string
+    parse_plist_output run_command system_version
 );
 
 our @EXPORT_OK = qw(
-    collect_hardware_snapshot evaluate_upgrade_facts
+    cached_hardware_snapshot collect_hardware_snapshot
+    evaluate_upgrade_fact evaluate_upgrade_facts
     is_version_at_least version_compare
 );
+
+use constant HARDWARE_CACHE_SCHEMA_VERSION => 1;
+use constant NS_PROPERTY_LIST_XML_FORMAT_V1_0 => 100;
+use constant NS_DATA_WRITING_ATOMIC => 1;
 
 my %SIERRA_BLOCKED_MODEL = map { $_ => 1 } qw(
         iMac4,1
@@ -1048,6 +1055,128 @@ sub collect_hardware_snapshot {
     };
 }
 
+sub _boot_identifier {
+    my (%options) = @_;
+    my $identifier;
+    if (exists $options{boot_identifier}) {
+        $identifier = $options{boot_identifier};
+    } elsif ($options{boot_probe}) {
+        $identifier = $options{boot_probe}->();
+    } else {
+        $identifier = _sysctl('kern.boottime');
+    }
+    return '' unless defined $identifier;
+    $identifier =~ s/[\r\n]+\z//;
+    return $identifier;
+}
+
+sub _cache_string {
+    my ($cache, $key) = @_;
+    my $value = eval {
+        $cache->objectForKey_(foundation_string($key));
+    };
+    return unless blessed($value) && $$value;
+    return unless $value->isKindOfClass_(NSString->class());
+    return objc_string($value);
+}
+
+sub _snapshot_from_cache {
+    my ($path, $boot_identifier) = @_;
+    my $cache = load_plist_file($path, dictionary => 1);
+    return unless blessed($cache) && $$cache;
+
+    my $schema = eval {
+        $cache->objectForKey_(foundation_string('schema_version'));
+    };
+    return unless blessed($schema) && $$schema;
+    return unless $schema->isKindOfClass_(NSNumber->class());
+    return unless $schema->intValue() == HARDWARE_CACHE_SCHEMA_VERSION;
+
+    my $cached_boot = _cache_string($cache, 'boot_identifier');
+    return unless defined($cached_boot) && $cached_boot eq $boot_identifier;
+
+    my %snapshot;
+    for my $key (qw(version model board_id hardware_target)) {
+        my $value = _cache_string($cache, $key);
+        return unless defined $value;
+        $snapshot{$key} = $value;
+    }
+    my $virtual = eval {
+        $cache->objectForKey_(foundation_string('is_virtual'));
+    };
+    return unless blessed($virtual) && $$virtual;
+    return unless $virtual->isKindOfClass_(NSNumber->class());
+    $snapshot{is_virtual} = $virtual->boolValue() ? 1 : 0;
+    return \%snapshot;
+}
+
+sub _write_snapshot_cache {
+    my ($path, $boot_identifier, $snapshot) = @_;
+    my $cache = foundation_dictionary();
+    $cache->setObject_forKey_(
+        NSNumber->numberWithInt_(HARDWARE_CACHE_SCHEMA_VERSION),
+        foundation_string('schema_version')
+    );
+    $cache->setObject_forKey_(
+        foundation_string($boot_identifier),
+        foundation_string('boot_identifier')
+    );
+    for my $key (qw(version model board_id hardware_target)) {
+        $cache->setObject_forKey_(
+            foundation_string(defined($snapshot->{$key}) ? $snapshot->{$key} : ''),
+            foundation_string($key)
+        );
+    }
+    $cache->setObject_forKey_(
+        NSNumber->numberWithBool_($snapshot->{is_virtual} ? 1 : 0),
+        foundation_string('is_virtual')
+    );
+
+    my $valid = NSPropertyListSerialization->propertyList_isValidForFormat_(
+        $cache, NS_PROPERTY_LIST_XML_FORMAT_V1_0
+    );
+    return unless $valid;
+    my $data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
+        $cache, NS_PROPERTY_LIST_XML_FORMAT_V1_0, 0, undef
+    );
+    return unless blessed($data) && $$data;
+    return $data->writeToFile_options_error_(
+        foundation_string($path), NS_DATA_WRITING_ATOMIC, undef
+    ) ? 1 : 0;
+}
+
+sub cached_hardware_snapshot {
+    my ($output_path, %options) = @_;
+    die "Output path is required for hardware caching\n"
+        unless defined($output_path) && length($output_path);
+
+    my $collect = $options{collector} || sub {
+        return collect_hardware_snapshot(%options);
+    };
+    my $boot_identifier = _boot_identifier(%options);
+    return $collect->() unless length $boot_identifier;
+
+    my $cache_path = $output_path . '.munki-perls-hardware-cache.plist';
+    my $lock_path = $cache_path . '.lock';
+    my $lock;
+    if (!sysopen($lock, $lock_path, O_RDWR | O_CREAT, 0600)) {
+        return $collect->();
+    }
+    if (!flock($lock, LOCK_EX)) {
+        close $lock;
+        return $collect->();
+    }
+
+    my $snapshot = _snapshot_from_cache($cache_path, $boot_identifier);
+    if (!$snapshot) {
+        $snapshot = $collect->();
+        my $writer = $options{cache_writer} || \&_write_snapshot_cache;
+        eval { $writer->($cache_path, $boot_identifier, $snapshot) };
+    }
+    close $lock;
+    return $snapshot;
+}
+
 sub _physical_supported {
     my ($release, $snapshot) = @_;
     my $model = $snapshot->{model} || '';
@@ -1064,6 +1193,34 @@ sub _physical_supported {
     return 0;
 }
 
+sub evaluate_upgrade_fact {
+    my ($key, $snapshot) = @_;
+    die "Hardware snapshot must be a hash reference\n"
+        unless ref($snapshot) eq 'HASH';
+    my $wanted;
+    for my $release (@RELEASES) {
+        if ($key eq $release->{name} . '_upgrade_supported') {
+            $wanted = $release;
+            last;
+        }
+    }
+    die "Unknown upgrade fact: $key\n" unless $wanted;
+
+    my $at_target = version_compare(
+        $snapshot->{version}, $wanted->{target}
+    );
+    my $at_minimum = version_compare(
+        $snapshot->{version}, $wanted->{minimum}
+    );
+
+    # Being there already is not, strictly speaking, an upgrade path.
+    return 0 if !defined($at_target) || !defined($at_minimum);
+    return 0 if $at_target >= 0;
+    return 0 if $at_minimum < 0;
+    return 1 if $snapshot->{is_virtual};
+    return _physical_supported($wanted, $snapshot);
+}
+
 sub evaluate_upgrade_facts {
     my ($snapshot) = @_;
     die "Hardware snapshot must be a hash reference\n"
@@ -1071,27 +1228,7 @@ sub evaluate_upgrade_facts {
     my %facts;
     for my $release (@RELEASES) {
         my $key = $release->{name} . '_upgrade_supported';
-        my $supported = 0;
-        my $at_target = version_compare(
-            $snapshot->{version}, $release->{target}
-        );
-        my $at_minimum = version_compare(
-            $snapshot->{version}, $release->{minimum}
-        );
-
-        # Being there already is not, strictly speaking, an upgrade path.
-        if (!defined($at_target) || !defined($at_minimum)) {
-            $supported = 0;
-        } elsif ($at_target >= 0) {
-            $supported = 0;
-        } elsif ($at_minimum < 0) {
-            $supported = 0;
-        } elsif ($snapshot->{is_virtual}) {
-            $supported = 1;
-        } else {
-            $supported = _physical_supported($release, $snapshot);
-        }
-        $facts{$key} = $supported;
+        $facts{$key} = evaluate_upgrade_fact($key, $snapshot);
     }
     return \%facts;
 }

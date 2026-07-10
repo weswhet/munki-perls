@@ -8,7 +8,13 @@ use Foundation;
 use MunkiPerls qw(
     foundation_array foundation_dictionary foundation_string objc_string
 );
-use MunkiPerls::Facts qw(physical_or_virtual virtualization_facts);
+
+require './conditions/machine_type.pl';
+require './conditions/physical_or_virtual.pl';
+
+my $machine_type = \&MunkiPerls::Condition::MachineType::machine_type;
+my $physical_or_virtual =
+    \&MunkiPerls::Condition::PhysicalOrVirtual::physical_or_virtual;
 
 sub profiler_fixture {
     my (%values) = @_;
@@ -48,18 +54,20 @@ sub profiler_fixture {
 }
 
 my $physical_probe_count = 0;
-my $physical = virtualization_facts(
+my $physical = $machine_type->(
     hardware_snapshot => { is_virtual => 0 },
     profiler_probe => sub {
         $physical_probe_count++;
         return (1, profiler_fixture(boot_rom => 'VMW'));
     },
 );
-is_deeply($physical, {
-    machine_type => 'physical',
-    physical_or_virtual => 'physical',
-}, 'physical systems return both physical values');
+is($physical, 'physical', 'physical machine type remains physical');
 is($physical_probe_count, 0, 'physical systems do not invoke system_profiler');
+is(
+    $physical_or_virtual->({ is_virtual => 0 }),
+    'physical',
+    'physical_or_virtual returns physical independently'
+);
 
 my @classifications = (
     ['vmware', profiler_fixture(boot_rom => 'VMW71.00V.21100432.B64.2201181744')],
@@ -73,34 +81,36 @@ my @classifications = (
 for my $case (@classifications) {
     my ($expected, $fixture) = @{$case};
     my $probe_count = 0;
-    my $facts = virtualization_facts(
+    my $type = $machine_type->(
         hardware_snapshot => { is_virtual => 1 },
         profiler_probe => sub {
             $probe_count++;
             return (1, $fixture);
         },
     );
-    is($facts->{machine_type}, $expected, "$expected virtual machine is classified");
-    is($facts->{physical_or_virtual}, 'virtual', "$expected remains virtual in physical_or_virtual");
+    is($type, $expected, "$expected virtual machine is classified");
     is($probe_count, 1, "$expected classification uses one profiler probe");
-    is_deeply(
-        [sort keys %{$facts}],
-        [qw(machine_type physical_or_virtual)],
-        "$expected classification returns both facts together"
-    );
 }
 
-my $failed = virtualization_facts(
+my $failed = $machine_type->(
     hardware_snapshot => { is_virtual => 1 },
     profiler_probe => sub { return (0, '') },
 );
-is($failed->{machine_type}, 'unknown_virtual', 'failed profiler output is unknown virtual');
-is($failed->{physical_or_virtual}, 'virtual', 'failed profiler output remains virtual');
+is($failed, 'unknown_virtual', 'failed profiler output is unknown virtual');
 
 is(
-    physical_or_virtual(hardware_snapshot => { is_virtual => 1 }),
+    $machine_type->(
+        hardware_snapshot => { is_virtual => 1 },
+        profiler_output => profiler_fixture(boot_rom => 'VMW'),
+    ),
+    'vmware',
+    'machine_type accepts injected profiler output'
+);
+
+is(
+    $physical_or_virtual->({ is_virtual => 1 }),
     'virtual',
-    'physical_or_virtual compatibility wrapper retains its two-value contract'
+    'physical_or_virtual returns virtual independently'
 );
 
 done_testing();

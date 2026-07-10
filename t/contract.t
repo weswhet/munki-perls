@@ -10,18 +10,8 @@ use Foundation;
 use MunkiPerls qw(foundation_string load_plist_file objc_string);
 
 my $directory = tempdir(CLEANUP => 1);
-my $output = "$directory/ConditionalItems.plist";
 my @scripts = sort glob('conditions/*.pl');
-is(scalar @scripts, 11, 'eleven condition executables are installed');
-
-for my $script (@scripts) {
-    ok(-x $script, "$script is executable");
-    my $status = system { $script } $script, '--output', $output;
-    is($status, 0, "$script runs successfully");
-}
-
-my $plist = load_plist_file($output, dictionary => 1);
-ok(blessed($plist) && $$plist, 'combined output is a dictionary plist');
+is(scalar @scripts, 22, 'twenty-two condition executables are installed');
 
 my @expected = sort qw(
     admin_users
@@ -48,20 +38,27 @@ my @expected = sort qw(
     ventura_upgrade_supported
 );
 
-my @actual;
-my $keys = $plist->keyEnumerator();
-while (my $key = $keys->nextObject()) {
-    last unless blessed($key) && $$key;
-    push @actual, objc_string($key);
-}
-is_deeply([sort @actual], \@expected, 'complete exact 22-key contract');
-
 my %arrays = map { $_ => 1 } qw(admin_users local_user_dirs);
 my %strings = map { $_ => 1 } qw(
     console_user crashplan_username filevault_status gatekeeper_status
     machine_type mdm_managed_user physical_or_virtual sip_status
 );
-for my $key (@expected) {
+my @actual;
+for my $script (@scripts) {
+    ok(-x $script, "$script is executable");
+    (my $key = $script) =~ s{\Aconditions/|\.pl\z}{}g;
+    my $output = "$directory/$key.plist";
+    my $status = system { $script } $script, '--output', $output;
+    is($status, 0, "$script runs successfully");
+
+    my $plist = load_plist_file($output, dictionary => 1);
+    ok(blessed($plist) && $$plist, "$script output is a dictionary plist");
+    is($plist->count(), 1, "$script writes exactly one key");
+    my $keys = $plist->keyEnumerator();
+    my $only_key = $keys->nextObject();
+    is(objc_string($only_key), $key, "$script key matches its basename");
+    push @actual, $key;
+
     my $value = $plist->objectForKey_(foundation_string($key));
     ok(blessed($value) && $$value, "$key has a native value");
     if ($arrays{$key}) {
@@ -78,5 +75,6 @@ for my $key (@expected) {
         is($value->objCType(), 'c', "$key is specifically a plist boolean");
     }
 }
+is_deeply([sort @actual], \@expected, 'isolated outputs form the exact 22-key contract');
 
 done_testing();

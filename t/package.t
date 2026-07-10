@@ -31,7 +31,10 @@ open(my $bom, '-|', '/usr/bin/lsbom', "$expanded/Bom") or die $!;
 my $listing = <$bom>;
 close $bom;
 is($?, 0, 'lsbom inspects package');
-like($listing, qr{\./macos_upgrade_supported\.pl}, 'package contains consolidated upgrade condition');
+my @executables = $listing =~ /^\.\/([^\.][^\/]*\.pl)\s+100755\b/gm;
+is(scalar @executables, 22, 'package contains exactly 22 executable conditions');
+like($listing, qr{\./sierra_upgrade_supported\.pl}, 'package contains split upgrade conditions');
+unlike($listing, qr{\./macos_upgrade_supported\.pl}, 'package excludes removed aggregate upgrade condition');
 like($listing, qr{\./lib/MunkiPerls\.pm}, 'package contains shared Foundation runtime');
 
 done_testing();

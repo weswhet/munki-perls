@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" width="720" height="280" role="img" aria-labelledby="title description">
   <title id="title">munki-perls</title>
-  <desc id="description">A luminous pearl inside a property-list document, with paired fact lights and the words native Mac facts in classic Perl.</desc>
+  <desc id="description">A luminous pearl inside a property-list document, with twenty-two fact lights and the words native Mac facts in classic Perl.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#120b20"/>
@@ -40,7 +40,7 @@
   <circle cx="145" cy="138" r="103" fill="none" stroke="#9b7cff" stroke-opacity="0.08"/>
   <circle cx="145" cy="138" r="82" fill="none" stroke="#6ee7c5" stroke-opacity="0.11" stroke-dasharray="2 8"/>
 
-  <!-- Eleven paired lights: eleven scripts produce twenty-two typed facts. -->
+  <!-- Twenty-two lights: twenty-two scripts produce twenty-two typed facts. -->
   <g fill="#6ee7c5">
     <circle cx="55" cy="92" r="2.6"/><circle cx="55" cy="105" r="2.6"/>
     <circle cx="48" cy="122" r="2.6"/><circle cx="48" cy="135" r="2.6"/>
@@ -78,7 +78,7 @@
       <rect x="291" y="195" width="97" height="30" rx="15" fill="#9b7cff" fill-opacity="0.14" stroke="#9b7cff" stroke-opacity="0.5"/>
       <text x="312" y="215" fill="#cdbfff">22 FACTS</text>
       <rect x="399" y="195" width="111" height="30" rx="15" fill="#6ee7c5" fill-opacity="0.1" stroke="#6ee7c5" stroke-opacity="0.42"/>
-      <text x="419" y="215" fill="#95f0d9">11 SCRIPTS</text>
+      <text x="414" y="215" fill="#95f0d9">22 SCRIPTS</text>
       <rect x="521" y="195" width="121" height="30" rx="15" fill="#ffbd72" fill-opacity="0.09" stroke="#ffbd72" stroke-opacity="0.4"/>
       <text x="541" y="215" fill="#ffd19d">ONE PLIST</text>
     </g>

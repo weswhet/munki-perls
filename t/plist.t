@@ -10,7 +10,7 @@ use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(
     fact_array fact_bool fact_string foundation_array foundation_dictionary
-    foundation_string load_plist_file objc_string write_facts
+    foundation_string load_plist_file objc_string run_condition write_facts
 );
 
 sub save_native {
@@ -27,6 +27,18 @@ sub value_for {
 }
 
 my $directory = tempdir(CLEANUP => 1);
+my $context_output = "$directory/context.plist";
+my $callback_output;
+is(run_condition(
+    ['--output', $context_output],
+    sub {
+        my ($context) = @_;
+        $callback_output = $context->{output_path};
+        return { context => fact_string('received') };
+    },
+), 0, 'condition runner accepts a callback context');
+is($callback_output, $context_output, 'callback context contains the resolved output path');
+
 my $absent = "$directory/absent.plist";
 ok(write_facts($absent, { greeting => fact_string('hello') }), 'creates absent plist');
 is(objc_string(value_for(load_plist_file($absent, dictionary => 1), 'greeting')),

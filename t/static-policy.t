@@ -4,6 +4,14 @@ use warnings;
 
 use File::Find;
 use Test::More;
+use lib 'conditions/lib';
+use MunkiPerls::Facts ();
+
+is_deeply(
+    [sort @MunkiPerls::Facts::EXPORT_OK],
+    [qw(command_status console_user_facts)],
+    'shared facts module exports only multi-fact helpers'
+);
 
 my @files;
 find(

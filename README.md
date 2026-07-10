@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Typed Munki facts for every Mac from Lion onward.</strong><br>
-  Eleven quiet condition scripts, twenty-two useful answers, and no additional runtime to explain.
+  Twenty-two quiet condition scripts, twenty-two useful answers, and no additional runtime to explain.
 </p>
 
 <p align="center">
@@ -41,7 +41,7 @@ event.
 | | |
 | --- | --- |
 | **Compatibility** | OS X 10.7 Lion and newer; Perl 5.12 |
-| **Contract** | Exactly 22 native plist keys from 11 executable scripts |
+| **Contract** | Exactly 22 native plist keys from 22 executable scripts |
 | **Output** | Munki's configured `ManagedInstallDir/ConditionalItems.plist` |
 | **Dependencies** | Apple's stock Perl, `Foundation`, and `PerlObjCBridge` |
 | **Writes** | Sidecar-locked and atomically replaced through Foundation |
@@ -61,7 +61,11 @@ adding an answer does not create a new dialect of “true.”
 
 ### Fact contract
 
-The installed scripts provide exactly these keys and native plist types:
+The installed scripts follow a one-file-per-fact contract: every executable is
+named `<fact_key>.pl` and writes only that matching key. Together they provide
+exactly these keys and native plist types. Fact-specific collection logic lives
+beside its executable; shared modules retain only cross-fact primitives and
+hardware compatibility data.
 
 | Key | Native plist type |
 | --- | --- |
@@ -105,7 +109,7 @@ install it at the system volume:
 sudo /usr/sbin/installer -pkg munki-perls-0.1.N.pkg -target /
 ```
 
-The package installs the 11 executable `.pl` files and their shared modules at
+The package installs the 22 executable `.pl` files and their shared modules at
 `/usr/local/munki/conditions`.
 
 To install directly from a checkout instead, preserve the executable modes and
@@ -125,7 +129,7 @@ Every condition accepts `--output PATH`, `--verbose`, and `--help`. The output
 override is useful for testing without involving the production plist:
 
 ```sh
-/usr/local/munki/conditions/macos_upgrade_supported.pl \
+/usr/local/munki/conditions/ventura_upgrade_supported.pl \
   --output /tmp/ConditionalItems.plist \
   --verbose
 ```
@@ -137,8 +141,9 @@ values. Missing commands on older systems yield the established `Unknown` or
 
 ## Upgrade compatibility
 
-The consolidated upgrade condition takes one hardware snapshot and emits ten
-boolean facts. Evaluation always proceeds in the same order:
+Each upgrade condition emits one boolean fact. The ten upgrade conditions
+share a reboot-scoped hardware snapshot and evaluate their named result in the
+same order:
 
 1. A Mac already at or above the target is not eligible.
 2. A Mac below the release's minimum source version is not eligible.
@@ -171,11 +176,17 @@ The remaining hardware tables continue the lineage at
 - A stable sidecar lock serializes updates from independently launched scripts.
 - Foundation atomically replaces the destination, so a partial file does not
   become tomorrow's inventory puzzle.
+- Upgrade and virtualization conditions share a hardware-only snapshot at
+  `<output>.munki-perls-hardware-cache.plist`. Its schema and `kern.boottime`
+  identifier keep it valid only for the current boot. A malformed or stale
+  cache—or any lock or write failure—falls back to live collection and never
+  prevents a fact from being written.
 - Subprocesses use absolute paths and direct argument vectors. The shell is not
   invited; it tends to bring interpretation with it.
-- Virtual hardware is detected once. Physical Macs stop there; virtual Macs use
-  one `system_profiler` plist to distinguish VMware, VirtualBox, Parallels, and
-  the entirely respectable `unknown_virtual`.
+- Virtual hardware is detected from the shared snapshot. Only `machine_type.pl`
+  makes the vendor-specific `system_profiler` query, and only for virtual Macs,
+  to distinguish VMware, VirtualBox, Parallels, and the entirely respectable
+  `unknown_virtual`.
 
 Back to My Mac is queried through `scutil` only on Mojave and older and is
 always false on Catalina and newer, which settled that question rather neatly.
