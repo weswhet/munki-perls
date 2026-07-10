@@ -16,15 +16,21 @@ my $name = 'munki-perls';
 my $identifier = 'com.github.weswhet.munki-perls';
 my $version = '0.1.0';
 my $install_location = '/usr/local/munki/conditions';
-my $output = File::Spec->catfile($FindBin::Bin, '..', "$name-$version.pkg");
+my $output;
 my $verbose = 0;
 my $help = 0;
 GetOptions(
+    'version=s' => \$version,
     'output=s' => \$output,
     'verbose' => \$verbose,
     'help' => \$help,
 ) or usage(2);
 usage(0) if $help;
+die "Version must use dotted numeric notation\n"
+    unless $version =~ /\A[0-9]+(?:\.[0-9]+){2}\z/;
+$output ||= File::Spec->catfile(
+    $FindBin::Bin, '..', "$name-$version.pkg"
+);
 
 if (-d $output) {
     $output = File::Spec->catfile($output, "$name-$version.pkg");
@@ -98,6 +104,6 @@ sub copy_file {
 
 sub usage {
     my ($status) = @_;
-    print "Usage: $0 [--output PATH] [--verbose] [--help]\n";
+    print "Usage: $0 [--version VERSION] [--output PATH] [--verbose] [--help]\n";
     exit $status;
 }

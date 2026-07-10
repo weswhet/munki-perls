@@ -6,10 +6,10 @@ use File::Temp qw(tempdir);
 use Test::More;
 
 my $directory = tempdir(CLEANUP => 1);
-my $package = "$directory/munki-perls-0.1.0.pkg";
+my $package = "$directory/munki-perls-0.1.42.pkg";
 my $status = system {
     'tools/build-pkg.pl'
-} 'tools/build-pkg.pl', '--output', $package;
+} 'tools/build-pkg.pl', '--version', '0.1.42', '--output', $package;
 is($status, 0, 'package builds');
 ok(-f $package, 'unsigned package artifact exists');
 
@@ -24,7 +24,7 @@ local $/;
 my $package_info = <$info>;
 close $info;
 like($package_info, qr{identifier="com\.github\.weswhet\.munki-perls"}, 'package identifier is correct');
-like($package_info, qr{version="0\.1\.0"}, 'package version is correct');
+like($package_info, qr{version="0\.1\.42"}, 'configured package version is correct');
 like($package_info, qr{install-location="/usr/local/munki/conditions"}, 'install location is correct');
 
 open(my $bom, '-|', '/usr/bin/lsbom', "$expanded/Bom") or die $!;

@@ -83,6 +83,12 @@ at `/usr/local/munki/conditions`, with as little ceremony as the format permits:
 tools/build-pkg.pl --verbose
 ```
 
+Pass `--version X.Y.Z` to set both the package metadata and default artifact
+name. After both CI architectures pass, every push to `main` uses the workflow
+run number to build version `0.1.N`, creates tag `v0.1.N`, and publishes the
+package on a GitHub Release. Re-running the workflow replaces the existing
+asset rather than attempting to improve arithmetic.
+
 ## Verification and release validation
 
 Run the syntax and test suites with Apple's Perl:
