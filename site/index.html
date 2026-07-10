@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en" class="tw-scroll-smooth">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>munki-perls — Typed Munki perls for Macs</title>
+  <meta name="description" content="Perl 5.8.8-compatible Munki conditions with native plist values, safe plugin loading, and support from Leopard onward.">
+  <link rel="canonical" href="https://weswhet.github.io/munki-perls/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="munki-perls">
+  <meta property="og:description" content="Typed Munki perls for Macs from Leopard onward.">
+  <meta property="og:url" content="https://weswhet.github.io/munki-perls/">
+  <meta property="og:image" content="https://weswhet.github.io/munki-perls/assets/munki-perls-hero.png">
+  <meta name="theme-color" content="#f3ecde">
+  <link rel="icon" type="image/png" href="./assets/favicon.png">
+  <link rel="stylesheet" href="./assets/base.css">
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var style = document.createElement('style');
+      if (!document.querySelector || !window.addEventListener) { return; }
+      style.textContent = '@supports (display:grid) and (--ink:#000){.modern-test{position:absolute}}';
+      document.getElementsByTagName('head')[0].appendChild(style);
+      if (!window.CSS || !CSS.supports || !CSS.supports('display', 'grid') || !CSS.supports('--ink', '#000')) { return; }
+      root.className += ' enhanced';
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = './assets/site.css';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }());
+  </script>
+</head>
+<body class="tw-bg-paper tw-text-ink tw-antialiased">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header tw-absolute tw-inset-x-0 tw-top-0 tw-z-20 tw-border-black/20">
+    <div class="shell tw-flex tw-items-center tw-justify-between">
+      <a class="brand tw-whitespace-nowrap tw-font-mono tw-text-xs tw-tracking-[.12em] sm:tw-text-sm sm:tw-tracking-[.16em]" href="#top" aria-label="munki-perls home">munki-perls / 01</a>
+      <nav class="site-nav tw-mt-0 tw-flex tw-gap-3 sm:tw-gap-6" aria-label="Primary navigation">
+        <a href="#perls">Perls</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="https://github.com/weswhet/munki-perls">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="top" class="hero tw-relative tw-flex tw-min-h-screen tw-items-center tw-pb-16 tw-pt-28 lg:tw-pt-24" aria-labelledby="hero-title">
+      <div class="tw-pointer-events-none tw-absolute tw-inset-x-0 tw-bottom-0 tw-h-px tw-bg-black/25"></div>
+      <div class="shell tw-grid tw-items-center tw-gap-8 lg:tw-grid-cols-[.86fr_1.14fr] lg:tw-gap-2">
+        <div class="hero-copy tw-relative tw-z-10 tw-w-auto">
+          <div class="tw-flex tw-flex-col tw-items-start">
+            <p class="eyebrow hero-enter tw-mb-6 tw-text-orange">Admin-provided conditions · Perl 5.8.8</p>
+            <h1 id="hero-title" class="hero-enter tw-mb-6 tw-font-serif tw-text-[clamp(4rem,9vw,8.8rem)] tw-leading-[.79] tw-tracking-poster">munki-<br>perls</h1>
+            <p class="lede hero-enter tw-max-w-md tw-text-xl tw-leading-snug md:tw-text-2xl">Typed Munki perls for Macs from Leopard onward.</p>
+            <div class="actions hero-enter tw-flex tw-flex-wrap">
+              <a class="button" href="https://github.com/weswhet/munki-perls/releases/latest">Download latest</a>
+              <a class="button button-secondary" href="https://github.com/weswhet/munki-perls">View on GitHub</a>
+            </div>
+          </div>
+        </div>
+        <div class="hero-visual tw-relative tw-w-auto lg:tw-translate-x-[7%]">
+          <p class="micro tw-absolute tw-right-0 tw-top-0 tw-z-10 tw-hidden tw-text-right lg:tw-block">Six collectors<br>One native plist</p>
+          <picture>
+            <source srcset="./assets/munki-perls-hero.webp" type="image/webp">
+            <img class="hero-art tw-mx-auto tw-block tw-w-full tw-max-w-[310px] lg:tw-max-w-[800px]" src="./assets/munki-perls-hero.png" width="1254" height="1254" alt="Six colorful monkeys arranging pearl necklaces in a circle">
+          </picture>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="boring-title">
+      <div class="shell reveal md:tw-grid md:tw-grid-cols-[.7fr_1.3fr] md:tw-gap-16">
+        <div class="section-intro">
+          <p class="section-number tw-text-orange">02 / Method</p>
+          <h2 id="boring-title" class="tw-font-serif">Boring by design.</h2>
+          <p class="tw-max-w-sm tw-text-lg">A condition should be interesting to the manifest and profoundly boring to the machine.</p>
+        </div>
+        <ol class="proof-list">
+          <li class="tw-grid tw-gap-3 md:tw-grid-cols-[12rem_1fr]">
+            <strong>Native values</strong>
+            <span>Foundation preserves booleans, numbers, arrays, and dictionaries as real plist types.</span>
+          </li>
+          <li class="tw-grid tw-gap-3 md:tw-grid-cols-[12rem_1fr]">
+            <strong>Stock runtime</strong>
+            <span>Runs on Apple’s Perl 5.8.8 with no Python, package manager, or added ecosystem.</span>
+          </li>
+          <li class="tw-grid tw-gap-3 md:tw-grid-cols-[12rem_1fr]">
+            <strong>Safe loading</strong>
+            <span>Plugins are ownership-checked, loaded in isolation, and skipped individually when broken.</span>
+          </li>
+          <li class="tw-grid tw-gap-3 md:tw-grid-cols-[12rem_1fr]">
+            <strong>One clean write</strong>
+            <span>Results are collected, sidecar-locked, and atomically serialized to Munki’s conditional items.</span>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="perls" class="section" aria-labelledby="perls-title">
+      <div class="shell reveal">
+        <div class="section-intro tw-max-w-3xl">
+          <p class="section-number tw-text-orange">03 / Catalog</p>
+          <h2 id="perls-title" class="tw-font-serif">Small answers.<br>Useful inventory.</h2>
+          <p class="tw-text-lg">One runner discovers a focused library of non-executable plugins. Each perl returns typed values; none carries its own plist machinery.</p>
+        </div>
+        <div class="families tw-grid tw-gap-x-12 tw-gap-y-10 md:tw-grid-cols-2">
+          <article class="family tw-float-none tw-m-0 tw-min-h-0 tw-w-auto">
+            <p class="micro tw-text-orange">01</p>
+            <h3>People &amp; sessions</h3>
+            <p>Admin users, console identity and login state, local home directories, CrashPlan username.</p>
+          </article>
+          <article class="family tw-float-none tw-m-0 tw-min-h-0 tw-w-auto">
+            <p class="micro tw-text-orange">02</p>
+            <h3>Security &amp; management</h3>
+            <p>FileVault, Gatekeeper, SIP, managed user state, Back to My Mac, enabled system extensions.</p>
+          </article>
+          <article class="family tw-float-none tw-m-0 tw-min-h-0 tw-w-auto">
+            <p class="micro tw-text-orange">03</p>
+            <h3>Hardware</h3>
+            <p>Physical or virtual, with vendor identification for VMware, VirtualBox, and Parallels.</p>
+          </article>
+          <article class="family tw-float-none tw-m-0 tw-min-h-0 tw-w-auto">
+            <p class="micro tw-text-orange">04</p>
+            <h3>Upgrade paths</h3>
+            <p>Hardware-aware eligibility from Sierra through Goldengate, sharing one reboot-scoped snapshot.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="quickstart" class="section quickstart" aria-labelledby="quickstart-title">
+      <div class="shell reveal md:tw-grid md:tw-grid-cols-[.72fr_1.28fr] md:tw-gap-16">
+        <div class="section-intro">
+          <p class="section-number tw-text-[#ff8a55]">04 / Quickstart</p>
+          <h2 id="quickstart-title" class="tw-font-serif">Install.<br>Select.<br>Check in.</h2>
+          <p>The package places the runner and its plugin library at <code>/usr/local/munki/conditions</code>.</p>
+          <p><a href="https://github.com/weswhet/munki-perls#installation">Read the complete installation guide →</a></p>
+        </div>
+        <div>
+          <h3>Install the latest package</h3>
+          <div class="code-wrap">
+            <pre><code id="install-command">sudo /usr/sbin/installer \
+  -pkg munki-perls-0.1.N.pkg \
+  -target /</code></pre>
+            <button class="copy-button" type="button" data-copy="install-command">Copy command</button>
+          </div>
+          <h3>Choose only the perls you need</h3>
+          <div class="code-wrap">
+            <pre><code id="preference-example">&lt;key&gt;included_perls&lt;/key&gt;
+&lt;array&gt;
+    &lt;string&gt;console_user&lt;/string&gt;
+    &lt;string&gt;virtual_type.pl&lt;/string&gt;
+&lt;/array&gt;</code></pre>
+            <button class="copy-button" type="button" data-copy="preference-example">Copy example</button>
+          </div>
+          <p class="micro">No preferences? Every installed plugin runs.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta" aria-labelledby="release-title">
+      <div class="shell reveal">
+        <p class="section-number tw-text-orange">05 / Release</p>
+        <h2 id="release-title" class="tw-font-serif">One package.<br>No new runtime.</h2>
+        <p class="tw-mx-auto tw-max-w-xl tw-text-lg">Provisionally supports fully patched Mac OS X 10.5.8 Leopard on Intel and PowerPC, plus later releases.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/weswhet/munki-perls/releases/latest">Get the latest release</a>
+          <a class="button button-secondary" href="https://github.com/weswhet/munki-perls#readme">Read the README</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer tw-border-t tw-border-black/25">
+    <div class="shell">
+      <span>munki-perls · Apache License 2.0</span>
+      <span class="footer-right">Built for Macs from Leopard onward.</span>
+    </div>
+  </footer>
+  <script src="./assets/site.js"></script>
+</body>
+</html>

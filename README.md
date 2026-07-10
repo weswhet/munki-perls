@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <a href="https://weswhet.github.io/munki-perls/"><strong>Website and quickstart</strong></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/weswhet/munki-perls/actions/workflows/test.yml"><img src="https://github.com/weswhet/munki-perls/actions/workflows/test.yml/badge.svg" alt="Test status"></a>
   <a href="https://github.com/weswhet/munki-perls/releases/latest"><img src="https://img.shields.io/github/v/release/weswhet/munki-perls?label=release" alt="Latest release"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-Apache--2.0-6f5bd3" alt="Apache 2.0 license"></a>
@@ -298,6 +302,17 @@ Back to My Mac is queried through `scutil` only on Mojave and older and is
 always false on Catalina and newer, which settled that question rather neatly.
 
 ## Maintainer tools
+
+The project website lives in `site/` and builds to the ignored `dist/`
+directory. It uses a pinned Tailwind toolchain and project-relative asset URLs:
+
+```sh
+npm ci
+npm run dev       # local server with CSS watching
+npm run build     # production output
+npm run check     # output, URL, and ES5 fallback checks
+npm run preview   # serve the production output
+```
 
 `tools/extract_supported_devices.pl` reads an installer asset plist with
 Foundation, validates and deduplicates `SupportedDeviceModels`, and prints a
