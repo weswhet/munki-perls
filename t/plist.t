@@ -9,9 +9,9 @@ use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(
-    perl_array perl_bool perl_string foundation_array foundation_dictionary
-    foundation_string load_plist_file objc_string run_condition write_perls
-    write_plist_file
+    perl_array perl_bool perl_dictionary perl_integer perl_real perl_string
+    foundation_array foundation_dictionary foundation_string load_plist_file
+    objc_string run_condition write_perls write_plist_file
 );
 
 sub save_native {
@@ -122,12 +122,50 @@ ok(save_native($rich, $rich_root, 100), 'creates rich XML plist');
 ok(write_perls($rich, {
     unicode => perl_string("J\x{00fc}rgen \x{1f680}"),
     enabled => perl_bool(0),
+    integer => perl_integer(42),
+    real => perl_real('3.25'),
     names => perl_array('one', "\x{4e8c}"),
+    mixed => perl_array(
+        'plain',
+        perl_integer(7),
+        perl_dictionary(nested => perl_bool(1)),
+    ),
+    recursive => perl_dictionary(
+        label => 'west',
+        values => perl_array(perl_real('1.5'), perl_bool(0)),
+    ),
 }), 'merges Unicode and typed perls');
 my $rich_result = load_plist_file($rich, dictionary => 1);
 is(objc_string(value_for($rich_result, 'unicode')), "J\x{00fc}rgen \x{1f680}", 'Unicode round trips');
 is(value_for($rich_result, 'enabled')->objCType(), 'c', 'false remains a boolean');
+is(value_for($rich_result, 'integer')->longLongValue(), 42, 'integer remains numeric');
+cmp_ok(
+    abs(value_for($rich_result, 'real')->doubleValue() - 3.25),
+    '<', 0.0001, 'real remains numeric'
+);
 ok(value_for($rich_result, 'names')->isKindOfClass_(NSArray->class()), 'array has native type');
+my $mixed = value_for($rich_result, 'mixed');
+ok($mixed->isKindOfClass_(NSArray->class()), 'mixed array has native type');
+is(objc_string($mixed->objectAtIndex_(0)), 'plain', 'bare array scalar becomes a string');
+is($mixed->objectAtIndex_(1)->longLongValue(), 7, 'mixed array preserves an integer');
+ok(
+    $mixed->objectAtIndex_(2)->isKindOfClass_(NSDictionary->class()),
+    'mixed array preserves a dictionary'
+);
+my $recursive = value_for($rich_result, 'recursive');
+ok(
+    $recursive->isKindOfClass_(NSDictionary->class()),
+    'recursive dictionary has native type'
+);
+is(
+    objc_string(value_for($recursive, 'label')),
+    'west',
+    'bare dictionary scalar becomes a string'
+);
+ok(
+    value_for($recursive, 'values')->isKindOfClass_(NSArray->class()),
+    'dictionary preserves a nested array'
+);
 ok(value_for($rich_result, 'dictionary')->isKindOfClass_(NSDictionary->class()), 'nested dictionary preserved');
 cmp_ok(abs(value_for($rich_result, 'date')->timeIntervalSince1970() - 123456789), '<', 1, 'date preserved');
 is(value_for($rich_result, 'data')->length(), 3, 'data preserved');

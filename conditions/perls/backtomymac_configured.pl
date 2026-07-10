@@ -1,11 +1,7 @@
-#!/usr/bin/perl
 use 5.008008;
 use strict;
 use warnings;
-use FindBin;
-use lib "$FindBin::Bin/lib";
-package MunkiPerls::Condition::BackToMyMacConfigured;
-use MunkiPerls qw(perl_bool run_command run_condition system_version);
+use MunkiPerls qw(perl_bool run_command system_version);
 use MunkiPerls::Upgrade qw(is_version_at_least);
 
 sub backtomymac_configured {
@@ -29,11 +25,9 @@ sub backtomymac_configured {
     return $output =~ /\A\s*<dictionary>\s*\{/ ? 1 : 0;
 }
 
-unless (caller) {
-    exit run_condition(\@ARGV, sub {
-        return {
-            backtomymac_configured => perl_bool(backtomymac_configured())
-        };
-    });
+sub perls {
+    return {
+        backtomymac_configured => perl_bool(backtomymac_configured())
+    };
 }
 1;

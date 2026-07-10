@@ -41,6 +41,8 @@ $output = File::Spec->catfile(abs_path($output_parent), basename($output));
 
 my $source = abs_path(File::Spec->catdir($FindBin::Bin, '..', 'conditions'));
 die "Conditions payload is missing\n" unless defined $source && -d $source;
+my $scripts = abs_path(File::Spec->catdir($FindBin::Bin, 'pkg-scripts'));
+die "Package scripts are missing\n" unless defined $scripts && -d $scripts;
 my $workspace = tempdir('munki-perls-pkg-XXXXXX', TMPDIR => 1, CLEANUP => 1);
 my $staging = File::Spec->catdir($workspace, 'payload');
 mkpath($staging, 0, 0755);
@@ -72,6 +74,7 @@ my @command = (
     '--identifier', $identifier,
     '--version', $version,
     '--install-location', $install_location,
+    '--scripts', $scripts,
     $output,
 );
 print STDERR "Building unsigned $name $version package\n" if $verbose;

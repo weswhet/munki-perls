@@ -9,8 +9,11 @@ use Foundation;
 use MunkiPerls qw(
     foundation_array foundation_dictionary foundation_string write_plist_file
 );
+use MunkiPerls::Plugins qw(load_plugin);
 
-require './conditions/system_extensions.pl';
+my $plugin = load_plugin('conditions/perls/system_extensions.pl');
+my $system_extensions = $plugin->{package}->can('system_extensions');
+die "system_extensions plugin has no collector\n" unless $system_extensions;
 
 sub extension_row {
     my ($state, $identifier) = @_;
@@ -51,14 +54,14 @@ $database->setObject_forKey_($extensions, foundation_string('extensions'));
 ok(write_plist_file($database_path, $database), 'writes system-extension fixture');
 
 is_deeply(
-    [MunkiPerls::Condition::SystemExtensions::system_extensions($database_path)],
+    [$system_extensions->($database_path)],
     [qw(com.example.alpha com.example.zulu)],
     'returns only sorted, deduplicated, activated and enabled bundle IDs'
 );
 
 my $missing_path = "$directory/pre-catalina.plist";
 is_deeply(
-    [MunkiPerls::Condition::SystemExtensions::system_extensions($missing_path)],
+    [$system_extensions->($missing_path)],
     [],
     'a pre-Catalina system without the database returns an empty array'
 );
@@ -68,7 +71,7 @@ open(my $malformed, '>', $malformed_path) or die $!;
 print {$malformed} 'not a property list';
 close $malformed;
 is_deeply(
-    [MunkiPerls::Condition::SystemExtensions::system_extensions($malformed_path)],
+    [$system_extensions->($malformed_path)],
     [],
     'a malformed database returns an empty array'
 );
@@ -80,7 +83,7 @@ $wrong_shape->setObject_forKey_(
 );
 ok(write_plist_file($wrong_shape_path, $wrong_shape), 'writes wrong-shape fixture');
 is_deeply(
-    [MunkiPerls::Condition::SystemExtensions::system_extensions($wrong_shape_path)],
+    [$system_extensions->($wrong_shape_path)],
     [],
     'a database without an extensions array returns an empty array'
 );

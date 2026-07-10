@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Typed Munki perls for Macs from Leopard onward.</strong><br>
-  Quiet condition scripts, useful perls, and no additional runtime to explain.
+  Drop-in plugins, native plist values, and no additional runtime to explain.
 </p>
 
 <p align="center">
@@ -36,16 +36,16 @@ remain pending; see
 [Testing](#testing) for the validation boundary.
 
 The result is deliberately plain: native plist values, serialized updates, a
-strict subprocess allowlist, and perls that keep their historical names and
-semantics. Inventory should be informative. Its implementation need not be an
-event.
+strict subprocess allowlist for bundled collectors, and perls that keep their
+historical names and semantics. Inventory should be informative. Its
+implementation need not be an event.
 
 ## At a glance
 
 | | |
 | --- | --- |
 | **Compatibility** | Provisionally Mac OS X 10.5.8 on Intel and PowerPC, plus later releases; Perl 5.8.8 |
-| **Contract** | One native plist key per executable condition script |
+| **Contract** | Drop-in `perls()` plugins returning typed key/value maps |
 | **Output** | Munki's configured `ManagedInstallDir/ConditionalItems.plist` |
 | **Dependencies** | Apple's stock Perl, `Foundation`, and `PerlObjCBridge` |
 | **Writes** | Sidecar-locked and atomically replaced through Foundation |
@@ -63,13 +63,12 @@ adding an answer does not create a new dialect of “true.”
 | **Hardware** | physical or virtual, virtual-machine vendor |
 | **Upgrade paths** | Sierra through Goldengate, evaluated against OS version and Apple hardware identifiers |
 
-### Perl contract
+### Bundled perl contract
 
-The installed scripts follow a one-perl-per-file contract: every executable is
-named `<perl_key>.pl` and writes only that matching key. Together they provide
-the following keys and native plist types. Perl-specific collection logic lives
-beside its executable; shared modules retain only cross-perl primitives and
-hardware compatibility data.
+One executable runner discovers the non-executable `.pl` files in its sibling
+`perls` directory. Each plugin defines `perls()`, returns one or more typed
+keys, and needs no plist-writing or command-line scaffolding. The bundled
+plugins provide the following keys and native plist types.
 
 | Key | Native plist type |
 | --- | --- |
@@ -106,8 +105,9 @@ records in the `activated_enabled` state. It is a current usability inventory,
 not a record of whether a user or an MDM policy originally approved an
 extension.
 
-Community perls remain unbundled for now. The included collection stays focused
-on broadly useful inventory and compatibility answers.
+The included collection stays focused on broadly useful inventory and
+compatibility answers. Site-specific and community additions can be dropped
+in without changing the runner or a registration manifest.
 
 ## Installation
 
@@ -119,41 +119,97 @@ install it at the system volume:
 sudo /usr/sbin/installer -pkg munki-perls-0.1.N.pkg -target /
 ```
 
-The package installs the executable `.pl` files and their shared modules at
-`/usr/local/munki/conditions`.
+The package installs one executable runner, its shared modules, and the bundled
+non-executable plugins at `/usr/local/munki/conditions`.
 
-To install directly from a checkout instead, preserve the executable modes and
-copy the contents of `conditions/` to the same path:
+To install directly from a checkout, first remove the retired bundled
+executables from older releases, then preserve modes while copying the new
+layout:
 
 ```sh
+sudo tools/pkg-scripts/postinstall
 sudo /bin/mkdir -p /usr/local/munki/conditions
 sudo /usr/bin/ditto conditions /usr/local/munki/conditions
 ```
 
-Munki runs each executable and merges its perls into the configured
-`ManagedInstallDir/ConditionalItems.plist`.
+The cleanup script names only files previously owned by this project. It does
+not remove unrelated top-level conditions or custom plugins. Package upgrades
+run the same cleanup automatically.
+
+Munki executes `munki_perls.pl` and ignores the `perls` directory. The runner
+loads every valid plugin and writes their combined output to the configured
+`ManagedInstallDir/ConditionalItems.plist` once.
 
 ## Using the conditions
 
-Every condition accepts `--output PATH`, `--verbose`, and `--help`. The output
-override is useful for testing without involving the production plist:
+The runner accepts `--output PATH`, `--only NAME`, `--verbose`, and `--help`.
+Use `--only` with an output override to test one plugin without involving the
+production plist:
 
 ```sh
-/usr/local/munki/conditions/ventura_upgrade_supported.pl \
+/usr/local/munki/conditions/munki_perls.pl \
+  --only ventura_upgrade_supported \
   --output /tmp/ConditionalItems.plist \
   --verbose
 ```
 
 Set `MUNKI_PERLS_DEBUG=1` for the same concise diagnostics as `--verbose`.
-Diagnostics report collection and write status but never usernames or perl
-values. Missing commands on older systems yield the established `Unknown` or
-`NONE` fallback and allow the remaining scripts to continue with their day.
+Runner diagnostics identify the plugin and failure stage without printing its
+returned values. Plugin authors should likewise keep sensitive values out of
+exceptions. Missing commands on older systems yield the established `Unknown`
+or `NONE` fallback and allow the remaining plugins to continue with their day.
+
+## Adding a plugin
+
+A plugin is an ordinary, non-executable Perl file with a `perls()` function.
+It may return one key or a related group of keys:
+
+```perl
+use 5.008008;
+use strict;
+use warnings;
+use MunkiPerls qw(
+    perl_array perl_bool perl_dictionary perl_integer perl_real perl_string
+);
+
+sub perls {
+    return {
+        office_name => perl_string('West'),
+        office_floor => perl_integer(4),
+        office_features => perl_array('studio', 'kitchen'),
+        office_details => perl_dictionary(
+            open => perl_bool(1),
+            capacity_ratio => perl_real('0.75'),
+        ),
+    };
+}
+
+1;
+```
+
+Install it as trusted root code. The runner rejects symlinks, files with the
+wrong owner, and files or directories writable by group or others:
+
+```sh
+sudo /usr/bin/install -o root -g wheel -m 0644 \
+  office.pl /usr/local/munki/conditions/perls/office.pl
+```
+
+Plugins are loaded in sorted filename order and isolated namespaces. A broken
+plugin is diagnosed and skipped without losing valid results from the others.
+When plugins return the same key, the later filename wins; verbose mode reports
+the replacement. Prefix an intentional site override accordingly, for example
+`zz_site_machine_type.pl`.
+
+Values use explicit constructors so plist booleans and numbers do not become
+ambiguous Perl scalars. Arrays and dictionaries may be nested recursively;
+bare scalar members are treated as strings.
 
 ## Upgrade compatibility
 
-Each upgrade condition emits one boolean perl. The ten upgrade conditions
-share a reboot-scoped hardware snapshot and evaluate their named result in the
-same order:
+Each upgrade plugin emits one boolean perl. The upgrade plugins share a
+reboot-scoped hardware snapshot and evaluate their named result in the same
+order:
 
 1. A Mac already at or above the target is not eligible.
 2. A Mac below the release's minimum source version is not eligible.
@@ -186,8 +242,11 @@ The remaining hardware tables continue the lineage at
 ## How it stays boring
 
 - Property lists are read, constructed, typed, and serialized with Foundation.
-- Booleans remain plist booleans; arrays and strings remain what they claim.
-- A stable sidecar lock serializes updates from independently launched scripts.
+- Booleans and numbers retain native plist types; arrays and dictionaries may
+  contain recursively typed values.
+- Plugins are discovered deterministically, validated independently, and
+  collected before writing.
+- A stable sidecar lock serializes updates with other Munki conditions.
 - Foundation atomically replaces the destination, so a partial file does not
   become tomorrow's inventory puzzle.
 - Upgrade and virtualization conditions share a hardware-only snapshot at
@@ -195,12 +254,12 @@ The remaining hardware tables continue the lineage at
   identifier keep it valid only for the current boot. A malformed or stale
   cache—or any lock or write failure—falls back to live collection and never
   prevents a perl from being written.
-- Subprocesses use absolute paths and direct argument vectors. The shell is not
-  invited; it tends to bring interpretation with it.
-- Virtual hardware is detected from the shared snapshot. Only `machine_type.pl`
-  makes the vendor-specific `system_profiler` query, and only for virtual Macs,
-  to distinguish VMware, VirtualBox, Parallels, and the entirely respectable
-  `unknown_virtual`.
+- Bundled subprocesses use allowlisted absolute paths and direct argument
+  vectors. The shell is not invited; it tends to bring interpretation with it.
+- Virtual hardware is detected from the shared snapshot. Only the
+  `machine_type.pl` plugin makes the vendor-specific `system_profiler` query,
+  and only for virtual Macs, to distinguish VMware, VirtualBox, Parallels, and
+  the entirely respectable `unknown_virtual`.
 
 Back to My Mac is queried through `scutil` only on Mojave and older and is
 always false on Catalina and newer, which settled that question rather neatly.
@@ -234,7 +293,8 @@ Run the syntax and test suites with Apple's Perl:
 
 ```sh
 find conditions tools t -type f \
-  \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) \
+  \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \
+    -o -name postinstall \) \
   -exec /usr/bin/perl -Iconditions/lib -c {} \;
 /usr/bin/prove -lr t
 ```

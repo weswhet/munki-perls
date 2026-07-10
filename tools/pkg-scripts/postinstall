@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+use 5.008008;
+use strict;
+use warnings;
+
+use File::Spec;
+
+my $conditions_dir = $ENV{MUNKI_PERLS_CONDITIONS_DIR}
+    || '/usr/local/munki/conditions';
+my @legacy = qw(
+    admin_users.pl
+    backtomymac_configured.pl
+    bigsur_upgrade_supported.pl
+    catalina_upgrade_supported.pl
+    console_user.pl
+    console_user_logged_in.pl
+    crashplan_username.pl
+    filevault_status.pl
+    gatekeeper_status.pl
+    goldengate_upgrade_supported.pl
+    local_user_dirs.pl
+    machine_type.pl
+    mdm_managed_user.pl
+    mojave_upgrade_supported.pl
+    monterey_upgrade_supported.pl
+    physical_or_virtual.pl
+    sequoia_upgrade_supported.pl
+    sierra_upgrade_supported.pl
+    sip_status.pl
+    sonoma_upgrade_supported.pl
+    system_extensions.pl
+    tahoe_upgrade_supported.pl
+    ventura_upgrade_supported.pl
+);
+
+for my $name (@legacy) {
+    my $path = File::Spec->catfile($conditions_dir, $name);
+    next unless -e $path || -l $path;
+    unlink $path or die "Could not remove legacy condition $path: $!\n";
+}
+
+exit 0;

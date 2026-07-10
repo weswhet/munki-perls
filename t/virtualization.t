@@ -9,13 +9,15 @@ use MunkiPerls qw(
     foundation_array foundation_dictionary foundation_string objc_string
     serialize_plist
 );
+use MunkiPerls::Plugins qw(load_plugin);
 
-require './conditions/machine_type.pl';
-require './conditions/physical_or_virtual.pl';
-
-my $machine_type = \&MunkiPerls::Condition::MachineType::machine_type;
+my $machine_plugin = load_plugin('conditions/perls/machine_type.pl');
+my $physical_plugin = load_plugin('conditions/perls/physical_or_virtual.pl');
+my $machine_type = $machine_plugin->{package}->can('machine_type');
 my $physical_or_virtual =
-    \&MunkiPerls::Condition::PhysicalOrVirtual::physical_or_virtual;
+    $physical_plugin->{package}->can('physical_or_virtual');
+die "virtualization plugins are missing collectors\n"
+    unless $machine_type && $physical_or_virtual;
 
 sub profiler_fixture {
     my (%values) = @_;

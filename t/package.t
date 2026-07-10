@@ -2,6 +2,7 @@ use 5.008008;
 use strict;
 use warnings;
 
+use File::Path qw(mkpath);
 use File::Temp qw(tempdir);
 use Test::More;
 
@@ -37,18 +38,50 @@ my $listing = <$bom>;
 close $bom;
 is($?, 0, 'lsbom inspects package');
 my @executables = $listing =~ /^\.\/([^\.][^\/]*\.pl)\s+100755\b/gm;
-is(scalar @executables, 23, 'package contains exactly 23 executable conditions');
-like($listing, qr{\./system_extensions\.pl}, 'package contains system-extension inventory');
-like($listing, qr{\./sierra_upgrade_supported\.pl}, 'package contains split upgrade conditions');
+is_deeply(
+    \@executables,
+    ['munki_perls.pl'],
+    'package contains one top-level discovery runner'
+);
+like(
+    $listing,
+    qr{\./perls/system_extensions\.pl\s+100644\b},
+    'package contains non-executable system-extension inventory plugin'
+);
+like(
+    $listing,
+    qr{\./perls/sierra_upgrade_supported\.pl\s+100644\b},
+    'package contains non-executable split upgrade plugins'
+);
+unlike($listing, qr{\./system_extensions\.pl}, 'legacy top-level plugins are absent');
 unlike($listing, qr{\./macos_upgrade_supported\.pl}, 'package excludes removed aggregate upgrade condition');
 like($listing, qr{\./lib/MunkiPerls\.pm}, 'package contains shared Foundation runtime');
-my @modules = $listing =~ /^\.\/(lib\/MunkiPerls(?:\/[A-Za-z]+)?\.pm)\s+/gm;
-is_deeply(
-    [sort @modules],
-    [qw(
-        lib/MunkiPerls.pm
-        lib/MunkiPerls/Perls.pm
-        lib/MunkiPerls/Upgrade.pm
-    )],
-    'package contains exactly the renamed shared modules'
+like(
+    $listing,
+    qr{\./lib/MunkiPerls/Plugins\.pm\s+100644\b},
+    'package contains the plugin runtime'
 );
+
+ok(-x "$expanded/Scripts/postinstall", 'package contains executable postinstall cleanup');
+
+my $legacy_install = "$directory/legacy-install";
+mkpath("$legacy_install/perls", 0, 0755);
+for my $path (
+    "$legacy_install/admin_users.pl",
+    "$legacy_install/site_custom.pl",
+    "$legacy_install/perls/site_custom.pl",
+) {
+    open(my $file, '>', $path) or die $!;
+    print {$file} "test\n";
+    close $file or die $!;
+}
+{
+    local $ENV{MUNKI_PERLS_CONDITIONS_DIR} = $legacy_install;
+    $status = system {
+        $^X
+    } $^X, 'tools/pkg-scripts/postinstall';
+}
+is($status, 0, 'legacy cleanup runs against an injected installation');
+ok(!-e "$legacy_install/admin_users.pl", 'known legacy executable is removed');
+ok(-e "$legacy_install/site_custom.pl", 'unrelated top-level condition is preserved');
+ok(-e "$legacy_install/perls/site_custom.pl", 'custom plugin is preserved');

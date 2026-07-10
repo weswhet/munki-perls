@@ -16,11 +16,11 @@ use Scalar::Util qw(blessed);
 use Foundation;
 
 our @EXPORT_OK = qw(
-    perl_array perl_bool perl_string
+    perl_array perl_bool perl_dictionary perl_integer perl_real perl_string
     foundation_array foundation_dictionary foundation_string
     load_plist_file managed_install_dir objc_string parse_plist_output
     run_command run_condition serialize_plist system_version
-    write_perls write_plist_file
+    validate_perls write_perls write_plist_file
 );
 
 use constant NS_PROPERTY_LIST_MUTABLE_CONTAINERS => 1;
@@ -84,15 +84,124 @@ sub perl_bool {
     return { type => 'bool', value => $value ? 1 : 0 };
 }
 
+sub perl_integer {
+    my ($value) = @_;
+    die "Integer perl value is required\n"
+        unless defined($value) && $value =~ /\A[+-]?[0-9]+\z/;
+    return { type => 'integer', value => 0 + $value };
+}
+
+sub perl_real {
+    my ($value) = @_;
+    die "Real perl value is required\n" unless defined $value;
+    die "Invalid real perl value\n"
+        unless $value =~ /\A[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?\z/;
+    return { type => 'real', value => 0 + $value };
+}
+
+sub _descriptor {
+    my ($value) = @_;
+    return $value
+        if ref($value) eq 'HASH' && defined($value->{type});
+    return perl_string($value);
+}
+
 sub perl_array {
     my (@values) = @_;
-    return { type => 'array', value => \@values };
+    my @descriptors = map { _descriptor($_) } @values;
+    return { type => 'array', value => \@descriptors };
+}
+
+sub perl_dictionary {
+    my @arguments = @_;
+    my $values;
+    if (@arguments == 1 && ref($arguments[0]) eq 'HASH') {
+        $values = $arguments[0];
+    } else {
+        die "Dictionary perl requires key/value pairs\n"
+            if @arguments % 2;
+        $values = { @arguments };
+    }
+
+    my %descriptors;
+    for my $key (keys %{$values}) {
+        die "Dictionary perl keys must be defined strings\n"
+            if !defined($key) || ref($key);
+        $descriptors{$key} = _descriptor($values->{$key});
+    }
+    return { type => 'dictionary', value => \%descriptors };
+}
+
+sub _validate_descriptor {
+    my ($perl, $location) = @_;
+    $location ||= 'perl';
+    die "Invalid descriptor at $location\n"
+        unless ref($perl) eq 'HASH' && defined($perl->{type});
+
+    my $type = $perl->{type};
+    if ($type eq 'string') {
+        die "Invalid string descriptor at $location\n"
+            if ref($perl->{value});
+        return 1;
+    }
+    if ($type eq 'bool') {
+        die "Invalid boolean descriptor at $location\n"
+            if ref($perl->{value});
+        return 1;
+    }
+    if ($type eq 'integer') {
+        die "Invalid integer descriptor at $location\n"
+            unless defined($perl->{value})
+                && !ref($perl->{value})
+                && $perl->{value} =~ /\A[+-]?[0-9]+\z/;
+        return 1;
+    }
+    if ($type eq 'real') {
+        die "Invalid real descriptor at $location\n"
+            unless defined($perl->{value})
+                && !ref($perl->{value})
+                && $perl->{value} =~ /\A[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?\z/;
+        return 1;
+    }
+    if ($type eq 'array') {
+        die "Invalid array descriptor at $location\n"
+            unless ref($perl->{value}) eq 'ARRAY';
+        for (my $index = 0; $index < @{$perl->{value}}; $index++) {
+            _validate_descriptor(
+                $perl->{value}->[$index], "$location\[$index\]"
+            );
+        }
+        return 1;
+    }
+    if ($type eq 'dictionary') {
+        die "Invalid dictionary descriptor at $location\n"
+            unless ref($perl->{value}) eq 'HASH';
+        for my $key (sort keys %{$perl->{value}}) {
+            die "Invalid dictionary key at $location\n"
+                if !defined($key) || ref($key);
+            _validate_descriptor(
+                $perl->{value}->{$key}, "$location.$key"
+            );
+        }
+        return 1;
+    }
+    die "Unsupported perl type at $location: $type\n";
+}
+
+sub validate_perls {
+    my ($perls) = @_;
+    die "Perls must be a hash reference\n" unless ref($perls) eq 'HASH';
+    for my $key (sort keys %{$perls}) {
+        die "Perl keys must be non-empty strings\n"
+            if !defined($key) || ref($key) || !length($key);
+        _validate_descriptor($perls->{$key}, $key);
+    }
+    return 1;
 }
 
 sub _perl_object {
     my ($perl) = @_;
-    die "Invalid perl descriptor\n"
-        unless ref($perl) eq 'HASH' && defined $perl->{type};
+    _validate_descriptor($perl);
 
     if ($perl->{type} eq 'string') {
         return foundation_string($perl->{value});
@@ -100,14 +209,29 @@ sub _perl_object {
     if ($perl->{type} eq 'bool') {
         return NSNumber->numberWithBool_($perl->{value} ? 1 : 0);
     }
+    if ($perl->{type} eq 'integer') {
+        return NSNumber->numberWithLongLong_($perl->{value});
+    }
+    if ($perl->{type} eq 'real') {
+        return NSNumber->numberWithDouble_($perl->{value});
+    }
     if ($perl->{type} eq 'array') {
         my $array = foundation_array();
         my $values = $perl->{value};
-        die "Invalid array perl\n" unless ref($values) eq 'ARRAY';
         for my $value (@{$values}) {
-            $array->addObject_(foundation_string($value));
+            $array->addObject_(_perl_object($value));
         }
         return $array;
+    }
+    if ($perl->{type} eq 'dictionary') {
+        my $dictionary = foundation_dictionary();
+        for my $key (sort keys %{$perl->{value}}) {
+            $dictionary->setObject_forKey_(
+                _perl_object($perl->{value}->{$key}),
+                foundation_string($key)
+            );
+        }
+        return $dictionary;
     }
     die "Unsupported perl type: $perl->{type}\n";
 }
@@ -212,7 +336,7 @@ sub write_plist_file {
 sub write_perls {
     my ($path, $perls) = @_;
     die "Output path is required\n" unless defined $path && length $path;
-    die "Perls must be a hash reference\n" unless ref($perls) eq 'HASH';
+    validate_perls($perls);
 
     # One property list, one pen.
     my $lock_path = $path . '.lock';

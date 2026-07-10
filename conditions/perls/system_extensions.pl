@@ -1,14 +1,10 @@
-#!/usr/bin/perl
 use 5.008008;
 use strict;
 use warnings;
-use FindBin;
-use lib "$FindBin::Bin/lib";
-package MunkiPerls::Condition::SystemExtensions;
 use Scalar::Util qw(blessed);
 use Foundation;
 use MunkiPerls qw(
-    foundation_string load_plist_file objc_string perl_array run_condition
+    foundation_string load_plist_file objc_string perl_array
 );
 
 sub _valid_object {
@@ -54,11 +50,9 @@ sub system_extensions {
     return sort keys %enabled;
 }
 
-unless (caller) {
-    exit run_condition(\@ARGV, sub {
-        return {
-            system_extensions => perl_array(system_extensions()),
-        };
-    });
+sub perls {
+    return {
+        system_extensions => perl_array(system_extensions()),
+    };
 }
 1;

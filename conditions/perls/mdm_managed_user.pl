@@ -1,14 +1,10 @@
-#!/usr/bin/perl
 use 5.008008;
 use strict;
 use warnings;
-use FindBin;
-use lib "$FindBin::Bin/lib";
-package MunkiPerls::Condition::MDMManagedUser;
 use Scalar::Util qw(blessed);
 use Foundation;
 use MunkiPerls qw(
-    perl_string objc_string parse_plist_output run_command run_condition
+    perl_string objc_string parse_plist_output run_command
 );
 
 sub _managed_uuid_in_object {
@@ -79,9 +75,7 @@ sub mdm_managed_user {
     return $uuid;
 }
 
-unless (caller) {
-    exit run_condition(\@ARGV, sub {
-        return { mdm_managed_user => perl_string(mdm_managed_user()) };
-    });
+sub perls {
+    return { mdm_managed_user => perl_string(mdm_managed_user()) };
 }
 1;

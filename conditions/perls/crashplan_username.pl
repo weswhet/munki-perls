@@ -1,12 +1,8 @@
-#!/usr/bin/perl
 use 5.008008;
 use strict;
 use warnings;
-use FindBin;
-use lib "$FindBin::Bin/lib";
-package MunkiPerls::Condition::CrashPlanUsername;
 use Encode qw(decode FB_DEFAULT);
-use MunkiPerls qw(perl_string run_condition);
+use MunkiPerls qw(perl_string);
 
 sub crashplan_username {
     my ($path) = @_;
@@ -24,9 +20,7 @@ sub crashplan_username {
     return '';
 }
 
-unless (caller) {
-    exit run_condition(\@ARGV, sub {
-        return { crashplan_username => perl_string(crashplan_username()) };
-    });
+sub perls {
+    return { crashplan_username => perl_string(crashplan_username()) };
 }
 1;

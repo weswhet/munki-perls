@@ -10,21 +10,27 @@ use lib 'conditions/lib';
 use MunkiPerls qw(
     foundation_array foundation_dictionary foundation_string write_plist_file
 );
+use MunkiPerls::Plugins qw(load_plugin);
 use Foundation;
 
-require './conditions/backtomymac_configured.pl';
-require './conditions/crashplan_username.pl';
-require './conditions/local_user_dirs.pl';
-require './conditions/mdm_managed_user.pl';
+sub plugin_function {
+    my ($name, $function) = @_;
+    my $plugin = load_plugin("conditions/perls/$name.pl");
+    my $callback = $plugin->{package}->can($function);
+    die "$name does not define $function\n" unless $callback;
+    return $callback;
+}
 
-my $backtomymac_configured =
-    \&MunkiPerls::Condition::BackToMyMacConfigured::backtomymac_configured;
-my $crashplan_username =
-    \&MunkiPerls::Condition::CrashPlanUsername::crashplan_username;
-my $local_user_dirs =
-    \&MunkiPerls::Condition::LocalUserDirs::local_user_dirs;
-my $mdm_managed_user =
-    \&MunkiPerls::Condition::MDMManagedUser::mdm_managed_user;
+my $backtomymac_configured = plugin_function(
+    'backtomymac_configured', 'backtomymac_configured'
+);
+my $crashplan_username = plugin_function(
+    'crashplan_username', 'crashplan_username'
+);
+my $local_user_dirs = plugin_function('local_user_dirs', 'local_user_dirs');
+my $mdm_managed_user = plugin_function(
+    'mdm_managed_user', 'mdm_managed_user'
+);
 
 my $directory = tempdir(CLEANUP => 1);
 is($crashplan_username->("$directory/missing"), '', 'missing CrashPlan file returns empty string');

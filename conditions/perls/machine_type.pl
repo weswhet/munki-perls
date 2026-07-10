@@ -1,14 +1,10 @@
-#!/usr/bin/perl
 use 5.008008;
 use strict;
 use warnings;
-use FindBin;
-use lib "$FindBin::Bin/lib";
-package MunkiPerls::Condition::MachineType;
 use Scalar::Util qw(blessed);
 use Foundation;
 use MunkiPerls qw(
-    perl_string objc_string parse_plist_output run_command run_condition
+    perl_string objc_string parse_plist_output run_command
 );
 use MunkiPerls::Upgrade qw(cached_hardware_snapshot);
 
@@ -86,13 +82,11 @@ sub machine_type {
     return $ok ? _virtual_machine_type($output) : 'unknown_virtual';
 }
 
-unless (caller) {
-    exit run_condition(\@ARGV, sub {
-        my ($context) = @_;
-        my $snapshot = cached_hardware_snapshot($context->{output_path});
-        return { machine_type => perl_string(
-            machine_type(hardware_snapshot => $snapshot)
-        ) };
-    });
+sub perls {
+    my ($context) = @_;
+    my $snapshot = cached_hardware_snapshot($context->{output_path});
+    return { machine_type => perl_string(
+        machine_type(hardware_snapshot => $snapshot)
+    ) };
 }
 1;

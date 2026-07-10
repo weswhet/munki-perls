@@ -2,6 +2,7 @@ use 5.008008;
 use strict;
 use warnings;
 
+use File::Basename qw(basename);
 use File::Temp qw(tempdir);
 use Scalar::Util qw(blessed);
 use Test::More 'no_plan';
@@ -9,11 +10,37 @@ use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(foundation_string load_plist_file objc_string);
 
-my $directory = tempdir(CLEANUP => 1);
-my @scripts = sort glob('conditions/*.pl');
-is(scalar @scripts, 23, 'twenty-three condition executables are installed');
+my @executables = grep { -x $_ } sort glob('conditions/*.pl');
+is_deeply(
+    [map { basename($_) } @executables],
+    ['munki_perls.pl'],
+    'the discovery runner is the only top-level condition executable'
+);
 
-my @expected = sort qw(
+my @plugins = sort glob('conditions/perls/*.pl');
+ok(@plugins, 'bundled plugins are installed');
+for my $plugin (@plugins) {
+    ok(!-x $plugin, "$plugin is not executable");
+}
+
+my $directory = tempdir(CLEANUP => 1);
+my $output = "$directory/ConditionalItems.plist";
+my $status = system {
+    $^X
+} $^X, 'conditions/munki_perls.pl', '--output', $output;
+is($status, 0, 'the discovery runner collects bundled plugins');
+
+my $plist = load_plist_file($output, dictionary => 1);
+ok(blessed($plist) && $$plist, 'runner output is a dictionary plist');
+
+my %arrays = map { $_ => 1 } qw(
+    admin_users local_user_dirs system_extensions
+);
+my %strings = map { $_ => 1 } qw(
+    console_user crashplan_username filevault_status gatekeeper_status
+    machine_type mdm_managed_user physical_or_virtual sip_status
+);
+my @bundled_keys = sort qw(
     admin_users
     backtomymac_configured
     bigsur_upgrade_supported
@@ -39,35 +66,18 @@ my @expected = sort qw(
     ventura_upgrade_supported
 );
 
-my %arrays = map { $_ => 1 } qw(admin_users local_user_dirs system_extensions);
-my %strings = map { $_ => 1 } qw(
-    console_user crashplan_username filevault_status gatekeeper_status
-    machine_type mdm_managed_user physical_or_virtual sip_status
-);
-my @actual;
-for my $script (@scripts) {
-    ok(-x $script, "$script is executable");
-    (my $key = $script) =~ s{\Aconditions/|\.pl\z}{}g;
-    my $output = "$directory/$key.plist";
-    my $status = system { $^X } $^X, $script, '--output', $output;
-    is($status, 0, "$script runs successfully");
-
-    my $plist = load_plist_file($output, dictionary => 1);
-    ok(blessed($plist) && $$plist, "$script output is a dictionary plist");
-    is($plist->count(), 1, "$script writes exactly one key");
-    my $keys = $plist->keyEnumerator();
-    my $only_key = $keys->nextObject();
-    is(objc_string($only_key), $key, "$script key matches its basename");
-    push @actual, $key;
-
+for my $key (@bundled_keys) {
     my $value = $plist->objectForKey_(foundation_string($key));
-    ok(blessed($value) && $$value, "$key has a native value");
+    ok(blessed($value) && $$value, "$key is present");
     if ($arrays{$key}) {
         ok($value->isKindOfClass_(NSArray->class()), "$key is an array");
         my $items = $value->objectEnumerator();
         while (my $item = $items->nextObject()) {
             last unless blessed($item) && $$item;
-            ok($item->isKindOfClass_(NSString->class()), "$key item is a string");
+            ok(
+                $item->isKindOfClass_(NSString->class()),
+                "$key item is a string"
+            );
         }
     } elsif ($strings{$key}) {
         ok($value->isKindOfClass_(NSString->class()), "$key is a string");
@@ -76,4 +86,3 @@ for my $script (@scripts) {
         is($value->objCType(), 'c', "$key is specifically a plist boolean");
     }
 }
-is_deeply([sort @actual], \@expected, 'isolated outputs form the exact 23-key contract');

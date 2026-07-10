@@ -22,7 +22,7 @@ open(my $tracked, '-|', 'git', 'ls-files', '-z')
     local $/ = "\0";
     while (my $file = <$tracked>) {
         $file =~ s/\0\z//;
-        push @project_files, $file if length $file;
+        push @project_files, $file if length($file) && -f $file;
     }
 }
 close $tracked or die "Could not list tracked files\n";
@@ -60,7 +60,7 @@ my @files;
 find(
     sub {
         push @files, $File::Find::name
-            if -f $_ && /\.(?:pl|pm)\z/;
+            if -f $_ && (/\.(?:pl|pm)\z/ || $_ eq 'postinstall');
     },
     'conditions', 'tools'
 );
