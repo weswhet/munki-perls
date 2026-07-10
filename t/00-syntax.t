@@ -1,9 +1,9 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use File::Find;
-use Test::More;
+use Test::More 'no_plan';
 
 my @files;
 find(
@@ -16,9 +16,7 @@ find(
 
 for my $file (sort @files) {
     my $status = system {
-        '/usr/bin/perl'
-    } '/usr/bin/perl', '-Iconditions/lib', '-c', $file;
+        $^X
+    } $^X, '-Iconditions/lib', '-c', $file;
     is($status, 0, "$file compiles");
 }
-
-done_testing();

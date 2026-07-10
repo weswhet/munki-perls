@@ -1,24 +1,22 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
-use File::Path qw(make_path);
+use File::Path qw(mkpath);
 use File::Temp qw(tempdir tempfile);
 use Scalar::Util qw(blessed);
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(
     fact_array fact_bool fact_string foundation_array foundation_dictionary
     foundation_string load_plist_file objc_string run_condition write_facts
+    write_plist_file
 );
 
 sub save_native {
     my ($path, $root, $format) = @_;
-    my $data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-        $root, $format, 0, undef
-    );
-    return $data->writeToFile_options_error_(foundation_string($path), 1, undef);
+    return write_plist_file($path, $root, $format);
 }
 
 sub value_for {
@@ -26,11 +24,26 @@ sub value_for {
     return $plist->objectForKey_(foundation_string($key));
 }
 
+sub capture_condition {
+    my ($argv, $callback) = @_;
+    my ($stdout, $stderr) = ('', '');
+    my $status;
+    {
+        local *STDOUT;
+        local *STDERR;
+        open(STDOUT, '>', \$stdout) or die $!;
+        open(STDERR, '>', \$stderr) or die $!;
+        $status = run_condition($argv, $callback);
+    }
+    return ($status, $stdout, $stderr);
+}
+
 my $directory = tempdir(CLEANUP => 1);
 my $context_output = "$directory/context.plist";
 my $callback_output;
+my @context_arguments = ('--output', $context_output);
 is(run_condition(
-    ['--output', $context_output],
+    \@context_arguments,
     sub {
         my ($context) = @_;
         $callback_output = $context->{output_path};
@@ -38,6 +51,45 @@ is(run_condition(
     },
 ), 0, 'condition runner accepts a callback context');
 is($callback_output, $context_output, 'callback context contains the resolved output path');
+is_deeply(
+    \@context_arguments,
+    ['--output', $context_output],
+    'successful parsing leaves its input array unchanged'
+);
+
+my @global_arguments = ('global', 'arguments');
+my @help_arguments = ('--help');
+my ($cli_status, $cli_stdout, $cli_stderr);
+{
+    local @ARGV = @global_arguments;
+    ($cli_status, $cli_stdout, $cli_stderr) = capture_condition(
+        \@help_arguments,
+        sub { die "help must not collect facts\n" },
+    );
+    is_deeply(\@ARGV, \@global_arguments, 'condition runner preserves localized global arguments');
+}
+is_deeply(\@help_arguments, ['--help'], 'condition runner leaves its input array unchanged');
+is($cli_status, 0, 'help exits successfully');
+like($cli_stdout, qr{\AUsage: }, 'help prints usage to standard output');
+is($cli_stderr, '', 'help does not print an error');
+
+my @unknown_arguments = ('--unknown');
+($cli_status, $cli_stdout, $cli_stderr) = capture_condition(
+    \@unknown_arguments,
+    sub { die "unknown options must not collect facts\n" },
+);
+is($cli_status, 2, 'unknown option is rejected');
+is_deeply(\@unknown_arguments, ['--unknown'], 'unknown-option input remains unchanged');
+like($cli_stderr, qr{Usage: }, 'unknown option prints usage to standard error');
+
+my @positional_arguments = ('unexpected');
+($cli_status, $cli_stdout, $cli_stderr) = capture_condition(
+    \@positional_arguments,
+    sub { die "positional arguments must not collect facts\n" },
+);
+is($cli_status, 2, 'positional argument is rejected');
+is_deeply(\@positional_arguments, ['unexpected'], 'positional input remains unchanged');
+like($cli_stderr, qr{Usage: }, 'positional argument prints usage to standard error');
 
 my $absent = "$directory/absent.plist";
 ok(write_facts($absent, { greeting => fact_string('hello') }), 'creates absent plist');
@@ -130,7 +182,7 @@ isnt($after_inode, $before_inode, 'atomic Foundation write replaces the destinat
 SKIP: {
     skip 'permission behavior is not meaningful as root', 1 if $> == 0;
     my $locked_directory = "$directory/no-write";
-    make_path($locked_directory, { mode => 0500 });
+    mkpath($locked_directory, 0, 0500);
     my $failure = eval {
         write_facts("$locked_directory/output.plist", { key => fact_string('value') });
         1;
@@ -138,5 +190,3 @@ SKIP: {
     ok(!$failure, 'permission failure is reported');
     chmod 0700, $locked_directory;
 }
-
-done_testing();

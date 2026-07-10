@@ -1,6 +1,6 @@
 package MunkiPerls;
 
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
@@ -9,7 +9,7 @@ use Fcntl qw(:DEFAULT :flock);
 use File::Basename qw(dirname);
 use File::Spec;
 use File::Temp qw(tempfile);
-use Getopt::Long qw(GetOptionsFromArray);
+use Getopt::Long qw(GetOptions);
 use POSIX ();
 use Scalar::Util qw(blessed);
 
@@ -19,12 +19,12 @@ our @EXPORT_OK = qw(
     fact_array fact_bool fact_string
     foundation_array foundation_dictionary foundation_string
     load_plist_file managed_install_dir objc_string parse_plist_output
-    run_command run_condition system_version write_facts
+    run_command run_condition serialize_plist system_version
+    write_facts write_plist_file
 );
 
 use constant NS_PROPERTY_LIST_MUTABLE_CONTAINERS => 1;
 use constant NS_PROPERTY_LIST_XML_FORMAT_V1_0    => 100;
-use constant NS_DATA_WRITING_ATOMIC              => 1;
 use constant NS_UTF8_STRING_ENCODING             => 4;
 
 sub _valid_object {
@@ -120,7 +120,7 @@ sub load_plist_file {
     return unless _valid_object($data);
 
     my $plist = eval {
-        NSPropertyListSerialization->propertyListWithData_options_format_error_(
+        NSPropertyListSerialization->propertyListFromData_mutabilityOption_format_errorDescription_(
             $data, NS_PROPERTY_LIST_MUTABLE_CONTAINERS, undef, undef
         );
     };
@@ -185,6 +185,30 @@ sub _new_dictionary {
     return foundation_dictionary();
 }
 
+sub serialize_plist {
+    my ($object, $format) = @_;
+    return unless _valid_object($object);
+    $format = NS_PROPERTY_LIST_XML_FORMAT_V1_0 unless defined $format;
+
+    my $data = eval {
+        NSPropertyListSerialization->dataFromPropertyList_format_errorDescription_(
+            $object, $format, undef
+        );
+    };
+    return unless _valid_object($data);
+    return $data;
+}
+
+sub write_plist_file {
+    my ($path, $object, $format) = @_;
+    return unless defined($path) && length($path);
+    my $data = serialize_plist($object, $format);
+    return unless _valid_object($data);
+    return $data->writeToFile_atomically_(
+        foundation_string($path), 1
+    ) ? 1 : 0;
+}
+
 sub write_facts {
     my ($path, $facts) = @_;
     die "Output path is required\n" unless defined $path && length $path;
@@ -216,16 +240,10 @@ sub write_facts {
     );
     die "Conditional items are not a valid property list\n" unless $valid;
 
-    my $data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-        $plist, NS_PROPERTY_LIST_XML_FORMAT_V1_0, 0, undef
-    );
-    die "Could not serialize conditional items\n"
-        unless _valid_object($data);
-
-    my $written = $data->writeToFile_options_error_(
-        foundation_string($path), NS_DATA_WRITING_ATOMIC, undef
-    );
-    die "Could not atomically write conditional items\n" unless $written;
+    die "Could not atomically write conditional items\n"
+        unless write_plist_file(
+            $path, $plist, NS_PROPERTY_LIST_XML_FORMAT_V1_0
+        );
     close $lock or die "Cannot close plist lock: $!\n";
     return 1;
 }
@@ -284,12 +302,16 @@ sub run_condition {
     my $verbose = 0;
     my $help = 0;
     my @args = @{$argv};
-    my $ok = GetOptionsFromArray(
-        \@args,
-        'output=s' => \$output,
-        'verbose'  => \$verbose,
-        'help'     => \$help,
-    );
+    my $ok;
+    {
+        local @ARGV = @args;
+        $ok = GetOptions(
+            'output=s' => \$output,
+            'verbose'  => \$verbose,
+            'help'     => \$help,
+        );
+        @args = @ARGV;
+    }
     if (!$ok || @args) {
         print STDERR _usage($0);
         return 2;

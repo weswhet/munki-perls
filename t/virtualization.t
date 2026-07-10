@@ -1,12 +1,13 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(
     foundation_array foundation_dictionary foundation_string objc_string
+    serialize_plist
 );
 
 require './conditions/machine_type.pl';
@@ -46,9 +47,7 @@ sub profiler_fixture {
     );
     $root->addObject_($hardware_group);
 
-    my $data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-        $root, 100, 0, undef
-    );
+    my $data = serialize_plist($root, 100);
     my $string = NSString->alloc()->initWithData_encoding_($data, 4);
     return objc_string($string);
 }
@@ -112,5 +111,3 @@ is(
     'virtual',
     'physical_or_virtual returns virtual independently'
 );
-
-done_testing();

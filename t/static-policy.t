@@ -1,9 +1,9 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use File::Find;
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
 use MunkiPerls::Facts ();
 
@@ -53,5 +53,3 @@ for my $file (sort @files) {
         unlike($source, qr{\bsystem\s*(?:\{|\()|\bexec\s*(?:\{|\()}, "$file does not invoke subprocesses outside the shared direct runner");
     }
 }
-
-done_testing();

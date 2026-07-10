@@ -1,13 +1,15 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use File::Temp qw(tempdir);
 use Scalar::Util qw(blessed);
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
-use MunkiPerls qw(foundation_string load_plist_file objc_string);
+use MunkiPerls qw(
+    foundation_string load_plist_file objc_string write_plist_file
+);
 use MunkiPerls::Upgrade qw(cached_hardware_snapshot);
 
 sub snapshot {
@@ -23,10 +25,7 @@ sub snapshot {
 
 sub write_cache_root {
     my ($path, $root) = @_;
-    my $data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-        $root, 100, 0, undef
-    );
-    return $data->writeToFile_options_error_(foundation_string($path), 1, undef);
+    return write_plist_file($path, $root, 100);
 }
 
 my $directory = tempdir(CLEANUP => 1);
@@ -161,5 +160,3 @@ open(my $log, '<', $collection_log) or die $!;
 my @collections = <$log>;
 close $log;
 is(scalar @collections, 1, 'cache lock permits one live collection for concurrent readers');
-
-done_testing();

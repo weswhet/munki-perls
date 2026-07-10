@@ -1,12 +1,12 @@
 #!/usr/bin/perl
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use Cwd qw(abs_path);
 use File::Basename qw(basename dirname);
 use File::Find;
-use File::Path qw(make_path);
+use File::Path qw(mkpath);
 use File::Spec;
 use File::Temp qw(tempdir);
 use FindBin;
@@ -43,7 +43,7 @@ my $source = abs_path(File::Spec->catdir($FindBin::Bin, '..', 'conditions'));
 die "Conditions payload is missing\n" unless defined $source && -d $source;
 my $workspace = tempdir('munki-perls-pkg-XXXXXX', TMPDIR => 1, CLEANUP => 1);
 my $staging = File::Spec->catdir($workspace, 'payload');
-make_path($staging, { mode => 0755 });
+mkpath($staging, 0, 0755);
 
 find(
     {
@@ -53,11 +53,11 @@ find(
             return if $relative eq File::Spec->curdir();
             my $destination = File::Spec->catfile($staging, $relative);
             if (-d $File::Find::name) {
-                make_path($destination, { mode => 0755 });
+                mkpath($destination, 0, 0755);
                 return;
             }
             return unless -f $File::Find::name;
-            make_path(dirname($destination), { mode => 0755 });
+            mkpath(dirname($destination), 0, 0755);
             copy_file($File::Find::name, $destination);
             chmod((stat($File::Find::name))[2] & 07777, $destination)
                 or die "Could not set staged file mode\n";

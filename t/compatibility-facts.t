@@ -1,13 +1,15 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use Encode qw(encode);
-use File::Path qw(make_path);
+use File::Path qw(mkpath);
 use File::Temp qw(tempdir);
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
-use MunkiPerls qw(foundation_array foundation_dictionary foundation_string);
+use MunkiPerls qw(
+    foundation_array foundation_dictionary foundation_string write_plist_file
+);
 use Foundation;
 
 require './conditions/backtomymac_configured.pl';
@@ -72,7 +74,10 @@ ok(!$backtomymac_configured->(
 is($called, 0, 'Catalina and newer do not invoke scutil');
 
 my $users = "$directory/Users";
-make_path("$users/alice", "$users/bob", "$users/Shared", "$users/admin", "$users/Deleted Users", "$users/.hidden");
+mkpath([
+    "$users/alice", "$users/bob", "$users/Shared", "$users/admin",
+    "$users/Deleted Users", "$users/.hidden"
+], 0, 0777);
 is_deeply([$local_user_dirs->($users)], [qw(alice bob)], 'local user directories use native sorted directory traversal');
 
 my $uuid = '12345678-1234-1234-1234-123456789ABC';
@@ -80,11 +85,8 @@ my $profile_root = foundation_array();
 my $profile = foundation_dictionary();
 $profile->setObject_forKey_(foundation_string($uuid), foundation_string('Managed User'));
 $profile_root->addObject_($profile);
-my $profile_data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-    $profile_root, 100, 0, undef
-);
 my $profile_path = "$directory/profile.plist";
-$profile_data->writeToFile_options_error_(foundation_string($profile_path), 1, undef);
+write_plist_file($profile_path, $profile_root, 100);
 open(my $profile_fh, '<', $profile_path) or die $!;
 binmode $profile_fh;
 local $/;
@@ -100,5 +102,3 @@ is($mdm_managed_user->(
     directory_search => sub { return (0, '') },
 ), $uuid, 'unresolved managed UUID is retained');
 is($mdm_managed_user->(profile_output => '<not plist>'), 'NONE', 'missing managed user returns NONE');
-
-done_testing();

@@ -1,13 +1,13 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use File::Temp qw(tempdir);
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(
-    foundation_array foundation_dictionary foundation_string
+    foundation_array foundation_dictionary foundation_string write_plist_file
 );
 
 my $directory = tempdir(CLEANUP => 1);
@@ -27,13 +27,10 @@ for my $models (
     $assets->addObject_($asset);
 }
 $root->setObject_forKey_($assets, foundation_string('Assets'));
-my $data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-    $root, 100, 0, undef
-);
-ok($data->writeToFile_options_error_(foundation_string($input), 1, undef), 'writes installer fixture with Foundation');
+ok(write_plist_file($input, $root, 100), 'writes installer fixture with Foundation');
 
 my $tool = 'tools/extract_supported_devices.pl';
-open(my $child, '-|', $tool, '--input', $input) or die $!;
+open(my $child, '-|', $^X, $tool, '--input', $input) or die $!;
 local $/;
 my $output = <$child>;
 close $child;
@@ -42,13 +39,8 @@ is($output, "qw(\n    Mac14,2\n    Mac15,3\n    Mac16,1\n)\n", 'models are valid
 
 my $bad_input = "$directory/bad.plist";
 my $bad_root = foundation_array();
-$data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-    $bad_root, 100, 0, undef
-);
-$data->writeToFile_options_error_(foundation_string($bad_input), 1, undef);
-open($child, '-|', $tool, '--input', $bad_input) or die $!;
+write_plist_file($bad_input, $bad_root, 100);
+open($child, '-|', $^X, $tool, '--input', $bad_input) or die $!;
 while (<$child>) { }
 close $child;
 isnt($?, 0, 'extractor rejects a non-dictionary root');
-
-done_testing();

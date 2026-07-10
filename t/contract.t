@@ -1,10 +1,10 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use File::Temp qw(tempdir);
 use Scalar::Util qw(blessed);
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(foundation_string load_plist_file objc_string);
@@ -48,7 +48,7 @@ for my $script (@scripts) {
     ok(-x $script, "$script is executable");
     (my $key = $script) =~ s{\Aconditions/|\.pl\z}{}g;
     my $output = "$directory/$key.plist";
-    my $status = system { $script } $script, '--output', $output;
+    my $status = system { $^X } $^X, $script, '--output', $output;
     is($status, 0, "$script runs successfully");
 
     my $plist = load_plist_file($output, dictionary => 1);
@@ -76,5 +76,3 @@ for my $script (@scripts) {
     }
 }
 is_deeply([sort @actual], \@expected, 'isolated outputs form the exact 22-key contract');
-
-done_testing();

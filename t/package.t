@@ -1,15 +1,20 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
 use File::Temp qw(tempdir);
 use Test::More;
 
+if (!-x '/usr/bin/pkgbuild') {
+    plan skip_all => '/usr/bin/pkgbuild is required to build packages';
+}
+plan 'no_plan';
+
 my $directory = tempdir(CLEANUP => 1);
 my $package = "$directory/munki-perls-0.1.42.pkg";
 my $status = system {
-    'tools/build-pkg.pl'
-} 'tools/build-pkg.pl', '--version', '0.1.42', '--output', $package;
+    $^X
+} $^X, 'tools/build-pkg.pl', '--version', '0.1.42', '--output', $package;
 is($status, 0, 'package builds');
 ok(-f $package, 'unsigned package artifact exists');
 
@@ -36,5 +41,3 @@ is(scalar @executables, 22, 'package contains exactly 22 executable conditions')
 like($listing, qr{\./sierra_upgrade_supported\.pl}, 'package contains split upgrade conditions');
 unlike($listing, qr{\./macos_upgrade_supported\.pl}, 'package excludes removed aggregate upgrade condition');
 like($listing, qr{\./lib/MunkiPerls\.pm}, 'package contains shared Foundation runtime');
-
-done_testing();

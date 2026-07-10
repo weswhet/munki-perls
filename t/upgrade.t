@@ -1,8 +1,8 @@
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More 'no_plan';
 use lib 'conditions/lib';
 use MunkiPerls::Upgrade qw(
     collect_hardware_snapshot evaluate_upgrade_fact evaluate_upgrade_facts
@@ -144,5 +144,3 @@ my $unknown = eval {
     1;
 };
 ok(!$unknown, 'single-fact evaluator rejects unknown keys');
-
-done_testing();

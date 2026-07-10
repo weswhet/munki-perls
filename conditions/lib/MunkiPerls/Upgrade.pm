@@ -1,6 +1,6 @@
 package MunkiPerls::Upgrade;
 
-use 5.012;
+use 5.008008;
 use strict;
 use warnings;
 no warnings 'qw';
@@ -11,7 +11,7 @@ use Scalar::Util qw(blessed);
 
 use MunkiPerls qw(
     foundation_dictionary foundation_string load_plist_file objc_string
-    parse_plist_output run_command system_version
+    parse_plist_output run_command system_version write_plist_file
 );
 
 our @EXPORT_OK = qw(
@@ -22,7 +22,6 @@ our @EXPORT_OK = qw(
 
 use constant HARDWARE_CACHE_SCHEMA_VERSION => 1;
 use constant NS_PROPERTY_LIST_XML_FORMAT_V1_0 => 100;
-use constant NS_DATA_WRITING_ATOMIC => 1;
 
 my %SIERRA_BLOCKED_MODEL = map { $_ => 1 } qw(
         iMac4,1
@@ -1136,13 +1135,9 @@ sub _write_snapshot_cache {
         $cache, NS_PROPERTY_LIST_XML_FORMAT_V1_0
     );
     return unless $valid;
-    my $data = NSPropertyListSerialization->dataWithPropertyList_format_options_error_(
-        $cache, NS_PROPERTY_LIST_XML_FORMAT_V1_0, 0, undef
+    return write_plist_file(
+        $path, $cache, NS_PROPERTY_LIST_XML_FORMAT_V1_0
     );
-    return unless blessed($data) && $$data;
-    return $data->writeToFile_options_error_(
-        foundation_string($path), NS_DATA_WRITING_ATOMIC, undef
-    ) ? 1 : 0;
 }
 
 sub cached_hardware_snapshot {

@@ -5,7 +5,7 @@
 <h1 align="center">munki-perls</h1>
 
 <p align="center">
-  <strong>Typed Munki facts for every Mac from Lion onward.</strong><br>
+  <strong>Typed Munki facts for Macs from Leopard onward.</strong><br>
   Twenty-two quiet condition scripts, twenty-two useful answers, and no additional runtime to explain.
 </p>
 
@@ -25,11 +25,15 @@ what sort of virtual machine has appeared in inventory this morning.
 
 [`munki-facts`](https://github.com/munki/munki-facts) established a useful
 vocabulary for those answers. `munki-perls` carries that vocabulary forward as
-a Perl 5.12-compatible collection of Munki
+a Perl 5.8.8-compatible collection of Munki
 [admin-provided conditions](https://github.com/munki/munki/wiki/Conditional-Items),
 using only the `Foundation` and `PerlObjCBridge` modules Apple shipped with OS X.
-It supports OS X 10.7 Lion and every release after it without installing Python,
-a package manager, or a small ecosystem in order to write one property list.
+It provisionally supports fully patched Mac OS X 10.5.8 Leopard on Intel and
+PowerPC, plus later OS X and macOS releases on the architectures they support,
+without installing Python, a package manager, or a small ecosystem in order to
+write one property list. Leopard installation and full runtime smoke testing
+remain pending; see
+[Testing](#testing) for the validation boundary.
 
 The result is deliberately plain: native plist values, serialized updates, a
 strict subprocess allowlist, and facts that keep their historical names and
@@ -40,7 +44,7 @@ event.
 
 | | |
 | --- | --- |
-| **Compatibility** | OS X 10.7 Lion and newer; Perl 5.12 |
+| **Compatibility** | Provisionally Mac OS X 10.5.8 on Intel and PowerPC, plus later releases; Perl 5.8.8 |
 | **Contract** | Exactly 22 native plist keys from 22 executable scripts |
 | **Output** | Munki's configured `ManagedInstallDir/ConditionalItems.plist` |
 | **Dependencies** | Apple's stock Perl, `Foundation`, and `PerlObjCBridge` |
@@ -164,6 +168,10 @@ same order:
 | `tahoe_upgrade_supported` | 26 | 10.7 through the release below 26 |
 | `goldengate_upgrade_supported` | 27 | 10.7 through the release below 27 |
 
+Leopard runtime support does not change upgrade eligibility. These facts retain
+their existing minimum source versions: 10.7 for every row shown as 10.7 and
+10.9 for Catalina.
+
 Sierra uses the final model and board tables from the parent of
 [`munki-facts` removal commit `bbeee28dd2a5`](https://github.com/munki/munki-facts/commit/bbeee28dd2a5).
 The remaining hardware tables continue the lineage at
@@ -198,7 +206,9 @@ Foundation, validates and deduplicates `SupportedDeviceModels`, and prints a
 sorted Perl `qw(...)` table.
 
 `tools/build-pkg.pl` stages the payload with native Perl file APIs and invokes
-only `/usr/bin/pkgbuild`. It creates an unsigned package with identifier
+only `/usr/bin/pkgbuild`. The tool is Perl 5.8.8-compatible, but packages must
+be built on a newer host that provides `pkgbuild`; Leopard is a supported
+installation target, not a package build host. It creates an unsigned package with identifier
 `com.github.weswhet.munki-perls`, installed at
 `/usr/local/munki/conditions`:
 
@@ -224,13 +234,19 @@ find conditions tools -type f \( -name '*.pl' -o -name '*.pm' \) \
 
 CI covers ARM on `macos-15` and Intel on `macos-26-intel`; injected OS,
 hardware, and Foundation plist fixtures exercise earlier macOS and virtual
-machine branches. The suite also builds and expands a package, inspects its
-BOM, and verifies the exact 22-key native plist contract.
+machine branches. A checksum-pinned build of exact Perl 5.8.8 compiles every
+Perl source and test with a compile-only Foundation stub, then runs the
+Foundation-independent syntax, policy, and package tests on both architectures.
+The modern-Perl suite also builds and expands a package, inspects its BOM, and
+verifies the exact 22-key native plist contract. Package tests skip on hosts
+without `/usr/bin/pkgbuild`.
 
-Before a release, smoke-test the installed package on real or virtual Lion,
-Mountain Lion, Mavericks, Yosemite, El Capitan, Sierra, High Sierra, and Mojave
-systems. A successful run is expected to be thoroughly boring. Here, that is a
-feature.
+Leopard validation is still pending. On real or virtual fully patched 10.5.8
+Intel and PowerPC systems, install a package built on a `pkgbuild` host, run all
+22 conditions, verify the native plist types and hardware-cache reuse, and run
+the Foundation-dependent tests. Until that matrix passes, 10.5.8 support is
+provisional. Continue smoke-testing later releases as before. A successful run
+is expected to be thoroughly boring. Here, that is a feature.
 
 ## Lineage and license
 
