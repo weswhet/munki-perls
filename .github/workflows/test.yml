@@ -1,0 +1,33 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  perl:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-26-intel
+            architecture: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify runner architecture
+        run: test "$(uname -m)" = "${{ matrix.architecture }}"
+      - name: Syntax check
+        run: |
+          while IFS= read -r file; do
+            /usr/bin/perl -Iconditions/lib -c "$file"
+          done < <(find conditions tools -type f \( -name '*.pl' -o -name '*.pm' \) -print)
+      - name: Test
+        run: /usr/bin/prove -lr t
+      - name: Build and inspect package
+        run: |
+          tools/build-pkg.pl --output "$RUNNER_TEMP/munki-perls-0.1.0.pkg"
+          /usr/sbin/pkgutil --expand "$RUNNER_TEMP/munki-perls-0.1.0.pkg" "$RUNNER_TEMP/expanded"
+          /usr/bin/lsbom "$RUNNER_TEMP/expanded/Bom"
