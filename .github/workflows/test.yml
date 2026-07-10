@@ -14,7 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - runner: macos-14
+            architecture: arm64
           - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: x86_64
+          - runner: macos-26
             architecture: arm64
           - runner: macos-26-intel
             architecture: x86_64
@@ -44,7 +50,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - runner: macos-14
+            architecture: arm64
+            asset: perl-5.8.8-darwin-arm64.tar.zstd
+            sha256: f09dbcef349f0fb22e1a6aac84f38623359a42e763eacf519ac3f0a8d7a759d3
           - runner: macos-15
+            architecture: arm64
+            asset: perl-5.8.8-darwin-arm64.tar.zstd
+            sha256: f09dbcef349f0fb22e1a6aac84f38623359a42e763eacf519ac3f0a8d7a759d3
+          - runner: macos-15-intel
+            architecture: x86_64
+            asset: perl-5.8.8-darwin-x64.tar.zstd
+            sha256: d2394adb9b67a504da6a05690f3df405aae638d6d41b8d30c703773a3ee3bb0e
+          - runner: macos-26
             architecture: arm64
             asset: perl-5.8.8-darwin-arm64.tar.zstd
             sha256: f09dbcef349f0fb22e1a6aac84f38623359a42e763eacf519ac3f0a8d7a759d3

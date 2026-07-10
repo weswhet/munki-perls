@@ -233,11 +233,13 @@ find conditions tools t -type f \
 /usr/bin/prove -lr t
 ```
 
-CI covers ARM on `macos-15` and Intel on `macos-26-intel`; injected OS,
-hardware, and Foundation plist fixtures exercise earlier macOS and virtual
-machine branches. A checksum-pinned build of exact Perl 5.8.8 compiles every
-Perl source and test with a compile-only Foundation stub, then runs the
-Foundation-independent syntax, policy, and package tests on both architectures.
+CI covers every standard GitHub-hosted macOS image: ARM on `macos-14`,
+`macos-15`, and `macos-26`, plus Intel on `macos-15-intel` and
+`macos-26-intel`. Injected OS, hardware, and Foundation plist fixtures exercise
+earlier macOS and virtual-machine branches. A checksum-pinned build of exact
+Perl 5.8.8 compiles every Perl source and test with a compile-only Foundation
+stub, then runs the Foundation-independent syntax, policy, and package tests
+on every image.
 The modern-Perl suite also builds and expands a package, inspects its BOM, and
 verifies the exact 22-key native plist contract. Package tests skip on hosts
 without `/usr/bin/pkgbuild`.
