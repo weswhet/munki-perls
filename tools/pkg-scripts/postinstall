@@ -9,6 +9,7 @@ my $conditions_dir = $ENV{MUNKI_PERLS_CONDITIONS_DIR}
     || '/usr/local/munki/conditions';
 my @legacy = qw(
     admin_users.pl
+    client_id.pl
     backtomymac_configured.pl
     bigsur_upgrade_supported.pl
     catalina_upgrade_supported.pl
@@ -20,11 +21,13 @@ my @legacy = qw(
     goldengate_upgrade_supported.pl
     local_user_dirs.pl
     machine_type.pl
+    mdm_install.pl
     mdm_managed_user.pl
     mojave_upgrade_supported.pl
     monterey_upgrade_supported.pl
     physical_or_virtual.pl
     sequoia_upgrade_supported.pl
+    shard.pl
     sierra_upgrade_supported.pl
     sip_status.pl
     sonoma_upgrade_supported.pl

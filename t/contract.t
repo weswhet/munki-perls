@@ -34,17 +34,27 @@ my $plist = load_plist_file($output, dictionary => 1);
 ok(blessed($plist) && $$plist, 'runner output is a dictionary plist');
 
 my %arrays = map { $_ => 1 } qw(
-    admin_users local_user_dirs system_extensions
+    admin_users approved_system_extension_bundle_ids
+    approved_system_extension_team_ids approved_system_extensions
+    local_user_dirs system_extensions
 );
 my %strings = map { $_ => 1 } qw(
-    console_user crashplan_username filevault_status gatekeeper_status
-    machine_type mdm_managed_user physical_or_virtual sip_status
+    client_id console_user crashplan_username filevault_status
+    gatekeeper_status machine_type mdm_install_date mdm_managed_user
+    physical_or_virtual sip_status
+);
+my %integers = map { $_ => 1 } qw(
+    mdm_hours_since_install shard
 );
 my @bundled_keys = sort qw(
     admin_users
+    approved_system_extension_bundle_ids
+    approved_system_extension_team_ids
+    approved_system_extensions
     backtomymac_configured
     bigsur_upgrade_supported
     catalina_upgrade_supported
+    client_id
     console_user
     console_user_logged_in
     crashplan_username
@@ -53,11 +63,14 @@ my @bundled_keys = sort qw(
     goldengate_upgrade_supported
     local_user_dirs
     machine_type
+    mdm_hours_since_install
+    mdm_install_date
     mdm_managed_user
     mojave_upgrade_supported
     monterey_upgrade_supported
     physical_or_virtual
     sequoia_upgrade_supported
+    shard
     sierra_upgrade_supported
     sip_status
     sonoma_upgrade_supported
@@ -81,6 +94,9 @@ for my $key (@bundled_keys) {
         }
     } elsif ($strings{$key}) {
         ok($value->isKindOfClass_(NSString->class()), "$key is a string");
+    } elsif ($integers{$key}) {
+        ok($value->isKindOfClass_(NSNumber->class()), "$key is a number");
+        isnt($value->objCType(), 'c', "$key is not a plist boolean");
     } else {
         ok($value->isKindOfClass_(NSNumber->class()), "$key is a number");
         is($value->objCType(), 'c', "$key is specifically a plist boolean");
