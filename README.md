@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="munki-perls — native Mac facts in classic Perl" width="720">
+  <img src="assets/logo.png" alt="munki-perls — native Mac facts in classic Perl" width="720">
 </p>
 
 <h1 align="center">munki-perls</h1>
