@@ -11,7 +11,7 @@ use MunkiPerls qw(foundation_string load_plist_file objc_string);
 
 my $directory = tempdir(CLEANUP => 1);
 my @scripts = sort glob('conditions/*.pl');
-is(scalar @scripts, 22, 'twenty-two condition executables are installed');
+is(scalar @scripts, 23, 'twenty-three condition executables are installed');
 
 my @expected = sort qw(
     admin_users
@@ -34,11 +34,12 @@ my @expected = sort qw(
     sierra_upgrade_supported
     sip_status
     sonoma_upgrade_supported
+    system_extensions
     tahoe_upgrade_supported
     ventura_upgrade_supported
 );
 
-my %arrays = map { $_ => 1 } qw(admin_users local_user_dirs);
+my %arrays = map { $_ => 1 } qw(admin_users local_user_dirs system_extensions);
 my %strings = map { $_ => 1 } qw(
     console_user crashplan_username filevault_status gatekeeper_status
     machine_type mdm_managed_user physical_or_virtual sip_status
@@ -75,4 +76,4 @@ for my $script (@scripts) {
         is($value->objCType(), 'c', "$key is specifically a plist boolean");
     }
 }
-is_deeply([sort @actual], \@expected, 'isolated outputs form the exact 22-key contract');
+is_deeply([sort @actual], \@expected, 'isolated outputs form the exact 23-key contract');

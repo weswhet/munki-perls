@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Typed Munki perls for Macs from Leopard onward.</strong><br>
-  Twenty-two quiet condition scripts, twenty-two useful perls, and no additional runtime to explain.
+  Quiet condition scripts, useful perls, and no additional runtime to explain.
 </p>
 
 <p align="center">
@@ -45,7 +45,7 @@ event.
 | | |
 | --- | --- |
 | **Compatibility** | Provisionally Mac OS X 10.5.8 on Intel and PowerPC, plus later releases; Perl 5.8.8 |
-| **Contract** | Exactly 22 native plist keys from 22 executable scripts |
+| **Contract** | One native plist key per executable condition script |
 | **Output** | Munki's configured `ManagedInstallDir/ConditionalItems.plist` |
 | **Dependencies** | Apple's stock Perl, `Foundation`, and `PerlObjCBridge` |
 | **Writes** | Sidecar-locked and atomically replaced through Foundation |
@@ -59,7 +59,7 @@ adding an answer does not create a new dialect of “true.”
 | Family | Answers |
 | --- | --- |
 | **People and sessions** | admin users, console user and login state, local home directories, CrashPlan username |
-| **Security and management** | FileVault, Gatekeeper, SIP, Back to My Mac, managed user |
+| **Security and management** | FileVault, Gatekeeper, SIP, Back to My Mac, managed user, enabled system extensions |
 | **Hardware** | physical or virtual, virtual-machine vendor |
 | **Upgrade paths** | Sierra through Goldengate, evaluated against OS version and Apple hardware identifiers |
 
@@ -67,7 +67,7 @@ adding an answer does not create a new dialect of “true.”
 
 The installed scripts follow a one-perl-per-file contract: every executable is
 named `<perl_key>.pl` and writes only that matching key. Together they provide
-exactly these keys and native plist types. Perl-specific collection logic lives
+the following keys and native plist types. Perl-specific collection logic lives
 beside its executable; shared modules retain only cross-perl primitives and
 hardware compatibility data.
 
@@ -93,6 +93,7 @@ hardware compatibility data.
 | `sierra_upgrade_supported` | boolean |
 | `sip_status` | string |
 | `sonoma_upgrade_supported` | boolean |
+| `system_extensions` | array of currently enabled system-extension bundle identifiers |
 | `tahoe_upgrade_supported` | boolean |
 | `ventura_upgrade_supported` | boolean |
 
@@ -100,8 +101,13 @@ hardware compatibility data.
 value. That historical collision is part of the contract, now with the courtesy
 of documentation. `physical_or_virtual` retains its simpler two-value domain.
 
-Community perls remain unbundled for now. Twenty-two keys should keep the
-property list adequately occupied.
+`system_extensions` reads Apple's system-extension database and includes only
+records in the `activated_enabled` state. It is a current usability inventory,
+not a record of whether a user or an MDM policy originally approved an
+extension.
+
+Community perls remain unbundled for now. The included collection stays focused
+on broadly useful inventory and compatibility answers.
 
 ## Installation
 
@@ -113,7 +119,7 @@ install it at the system volume:
 sudo /usr/sbin/installer -pkg munki-perls-0.1.N.pkg -target /
 ```
 
-The package installs the 22 executable `.pl` files and their shared modules at
+The package installs the executable `.pl` files and their shared modules at
 `/usr/local/munki/conditions`.
 
 To install directly from a checkout instead, preserve the executable modes and
@@ -241,15 +247,15 @@ Perl 5.8.8 compiles every Perl source and test with a compile-only Foundation
 stub, then runs the Foundation-independent syntax, policy, and package tests
 on every image.
 The modern-Perl suite also builds and expands a package, inspects its BOM, and
-verifies the exact 22-key native plist contract. Package tests skip on hosts
+verifies the complete native plist contract. Package tests skip on hosts
 without `/usr/bin/pkgbuild`.
 
 Leopard validation is still pending. On real or virtual fully patched 10.5.8
 Intel and PowerPC systems, install a package built on a `pkgbuild` host, run all
-22 conditions, verify the native plist types and hardware-cache reuse, and run
-the Foundation-dependent tests. Until that matrix passes, 10.5.8 support is
-provisional. Continue smoke-testing later releases as before. A successful run
-is expected to be thoroughly boring. Here, that is a feature.
+installed conditions, verify the native plist types and hardware-cache reuse,
+and run the Foundation-dependent tests. Until that matrix passes, 10.5.8
+support is provisional. Continue smoke-testing later releases as before. A
+successful run is expected to be thoroughly boring. Here, that is a feature.
 
 ## Lineage and license
 
