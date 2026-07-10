@@ -160,6 +160,45 @@ returned values. Plugin authors should likewise keep sensitive values out of
 exceptions. Missing commands on older systems yield the established `Unknown`
 or `NONE` fallback and allow the remaining plugins to continue with their day.
 
+### Selecting plugins with preferences
+
+Managed preferences in the persistent `org.munki.perls` domain can prevent
+unneeded plugins from being loaded or run. The domain accepts two optional
+array-of-string keys:
+
+```xml
+<key>included_perls</key>
+<array>
+    <string>console_user</string>
+    <string>virtual_type.pl</string>
+</array>
+```
+
+- When `included_perls` is present, only its valid, installed entries run and
+  `excluded_perls` is ignored completely. A present but empty include array
+  runs no plugins.
+- When only `excluded_perls` is present, all plugins except its valid,
+  installed entries run. A present but empty exclude array runs all plugins.
+- With neither key present, all plugins run.
+
+Entries are case-sensitive plugin filename stems; the `.pl` suffix is
+optional. Selection applies to the plugin file, so a custom plugin returning
+several keys is included or excluded as one unit. Duplicate entries have no
+additional effect.
+
+The runner skips and diagnoses invalid containers, non-string, empty, or
+unsafe entries, and names that do not match an installed plugin. It does not
+echo unsafe values or any values returned by plugins. The selected mode remains
+authoritative: for example, an invalid `included_perls` value does not make the
+runner fall back to loading every plugin. If the preference domain itself
+cannot be read, the no-configuration behavior of running all plugins is
+preserved. With `--verbose` or `MUNKI_PERLS_DEBUG=1`, diagnostics also report
+the active mode and matched/skipped plugin counts.
+
+The command-line `--only NAME` option is intended for direct testing and takes
+precedence over preferences. When it is supplied, the preference domain is not
+read.
+
 ## Adding a plugin
 
 A plugin is an ordinary, non-executable Perl file with a `perls()` function.

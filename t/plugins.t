@@ -171,6 +171,7 @@ my $perls = collect_plugins(
     $directory,
     { output_path => $output_path },
     diagnostic => sub { push @diagnostics, @_ },
+    preference_loader => sub { return {} },
     verbose => 1,
 );
 is($perls->{collision}->{value}, 'last', 'later sorted plugins replace keys');
@@ -241,6 +242,7 @@ my $only_status;
     $only_status = run_plugins_condition(
         \@only_arguments,
         plugin_dir => $directory,
+        preference_loader => sub { die "must not read preferences\n" },
     );
 }
 is(
@@ -273,6 +275,192 @@ my $missing_status;
 }
 is($missing_status, 1, 'a missing --only plugin fails');
 like($missing_stderr, qr{Plugin not found}, 'missing plugin error is reported');
+
+my $selection_directory = tempdir(CLEANUP => 1);
+chmod 0700, $selection_directory or die $!;
+my $marker = "$selection_directory/marker";
+
+sub write_marker_plugin {
+    my ($name, $keys) = @_;
+    my $load_mark = "$name:load";
+    my $call_mark = "$name:call";
+    my $pairs = join(
+        ",\n        ",
+        map { "$_ => perl_string('$_')" } @{$keys}
+    );
+    write_plugin($selection_directory, "$name.pl", <<PLUGIN);
+use 5.008008;
+use strict;
+use warnings;
+use MunkiPerls qw(perl_string);
+open(my \$loaded, '>>', '$marker') or die \$!;
+print {\$loaded} "$load_mark\n";
+close \$loaded or die \$!;
+sub perls {
+    open(my \$called, '>>', '$marker') or die \$!;
+    print {\$called} "$call_mark\n";
+    close \$called or die \$!;
+    return {
+        $pairs
+    };
+}
+1;
+PLUGIN
+}
+
+write_marker_plugin('alpha', ['alpha']);
+write_marker_plugin('custom_site', ['custom_one', 'custom_two']);
+write_marker_plugin('zulu', ['zulu']);
+
+sub selected_perls {
+    my ($preferences, $diagnostics, %options) = @_;
+    unlink $marker if -e $marker;
+    return collect_plugins(
+        $selection_directory,
+        {},
+        diagnostic => sub { push @{$diagnostics}, @_ },
+        preference_loader => sub {
+            die "preference bridge failed\n" if $options{fail};
+            return $preferences;
+        },
+        verbose => $options{verbose},
+    );
+}
+
+sub marker_text {
+    return '' unless -e $marker;
+    open(my $handle, '<', $marker) or die $!;
+    local $/;
+    my $text = <$handle>;
+    close $handle or die $!;
+    return $text;
+}
+
+my @selection_diagnostics;
+my $selected = selected_perls({}, \@selection_diagnostics, verbose => 1);
+is_deeply(
+    [sort keys %{$selected}],
+    [qw(alpha custom_one custom_two zulu)],
+    'missing preference keys select every plugin'
+);
+like(
+    join("\n", @selection_diagnostics),
+    qr{plugin selection mode all: 3 matched, 0 skipped},
+    'verbose diagnostics report all-mode counts'
+);
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    { included_perls => [] }, \@selection_diagnostics, verbose => 1
+);
+is_deeply($selected, {}, 'an empty include list selects no plugins');
+is(marker_text(), '', 'unselected plugins are neither loaded nor invoked');
+like(
+    join("\n", @selection_diagnostics),
+    qr{plugin selection mode include: 0 matched, 3 skipped},
+    'verbose diagnostics report include-mode counts'
+);
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    { excluded_perls => [] }, \@selection_diagnostics
+);
+is_deeply(
+    [sort keys %{$selected}],
+    [qw(alpha custom_one custom_two zulu)],
+    'an empty exclude list selects every plugin'
+);
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    { included_perls => ['alpha', 'custom_site.pl', 'alpha.pl'] },
+    \@selection_diagnostics
+);
+is_deeply(
+    [sort keys %{$selected}],
+    [qw(alpha custom_one custom_two)],
+    'include accepts stems and .pl names, deduplicates, and selects a multi-key plugin as a whole'
+);
+unlike(marker_text(), qr{zulu:(?:load|call)}, 'an omitted include plugin is not loaded or called');
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    { excluded_perls => ['alpha.pl', 'alpha', 'custom_site'] },
+    \@selection_diagnostics
+);
+is_deeply([sort keys %{$selected}], ['zulu'], 'exclude removes valid installed plugins');
+unlike(marker_text(), qr{alpha:(?:load|call)|custom_site:(?:load|call)}, 'excluded plugins are not loaded or called');
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    {
+        included_perls => ['zulu'],
+        excluded_perls => { invalid => 1 },
+    },
+    \@selection_diagnostics
+);
+is_deeply([sort keys %{$selected}], ['zulu'], 'include takes precedence over exclude');
+unlike(
+    join("\n", @selection_diagnostics),
+    qr{excluded_perls},
+    'an excluded list is completely ignored when include is present'
+);
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    { included_perls => 'alpha' }, \@selection_diagnostics
+);
+is_deeply($selected, {}, 'an invalid include container cannot fall back to all');
+like(
+    join("\n", @selection_diagnostics),
+    qr{included_perls must be an array of strings},
+    'an invalid include container is diagnosed'
+);
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    {
+        included_perls => [
+            'alpha', '', '../zulu', "bad\nname", {},
+            'unknown_plugin', 'unknown_plugin.pl'
+        ],
+    },
+    \@selection_diagnostics
+);
+is_deeply([sort keys %{$selected}], ['alpha'], 'invalid, unsafe, and unknown include entries are skipped');
+like(join("\n", @selection_diagnostics), qr{entry 1 is invalid}, 'empty entries are diagnosed by index');
+like(join("\n", @selection_diagnostics), qr{entry 2 is invalid}, 'unsafe entries are diagnosed by index');
+unlike(join("\n", @selection_diagnostics), qr{\.\./|bad\nname}, 'unsafe preference values are not echoed in diagnostics');
+like(join("\n", @selection_diagnostics), qr{unknown_plugin\.pl is not an installed plugin}, 'unknown safe plugin names are diagnosed');
+is(
+    scalar(grep { /unknown_plugin\.pl is not an installed plugin/ }
+        @selection_diagnostics),
+    1,
+    'duplicate unknown plugin names are diagnosed once'
+);
+
+@selection_diagnostics = ();
+$selected = selected_perls(
+    { excluded_perls => 'alpha' }, \@selection_diagnostics
+);
+is_deeply(
+    [sort keys %{$selected}],
+    [qw(alpha custom_one custom_two zulu)],
+    'an invalid exclude container excludes nothing'
+);
+
+@selection_diagnostics = ();
+$selected = selected_perls({}, \@selection_diagnostics, fail => 1);
+is_deeply(
+    [sort keys %{$selected}],
+    [qw(alpha custom_one custom_two zulu)],
+    'a preference read failure preserves the run-all fallback'
+);
+like(
+    join("\n", @selection_diagnostics),
+    qr{preferences could not be read; using all plugins: preference bridge failed},
+    'preference read failures are diagnosed without stopping collection'
+);
 
 my $missing_directory = "$directory/not-a-directory";
 my $missing_error = eval { discover_plugins($missing_directory); 1 };
