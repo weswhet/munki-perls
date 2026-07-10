@@ -16,11 +16,11 @@ use Scalar::Util qw(blessed);
 use Foundation;
 
 our @EXPORT_OK = qw(
-    fact_array fact_bool fact_string
+    perl_array perl_bool perl_string
     foundation_array foundation_dictionary foundation_string
     load_plist_file managed_install_dir objc_string parse_plist_output
     run_command run_condition serialize_plist system_version
-    write_facts write_plist_file
+    write_perls write_plist_file
 );
 
 use constant NS_PROPERTY_LIST_MUTABLE_CONTAINERS => 1;
@@ -74,42 +74,42 @@ sub foundation_array {
     return NSMutableArray->array();
 }
 
-sub fact_string {
+sub perl_string {
     my ($value) = @_;
     return { type => 'string', value => defined($value) ? $value : '' };
 }
 
-sub fact_bool {
+sub perl_bool {
     my ($value) = @_;
     return { type => 'bool', value => $value ? 1 : 0 };
 }
 
-sub fact_array {
+sub perl_array {
     my (@values) = @_;
     return { type => 'array', value => \@values };
 }
 
-sub _fact_object {
-    my ($fact) = @_;
-    die "Invalid fact descriptor\n"
-        unless ref($fact) eq 'HASH' && defined $fact->{type};
+sub _perl_object {
+    my ($perl) = @_;
+    die "Invalid perl descriptor\n"
+        unless ref($perl) eq 'HASH' && defined $perl->{type};
 
-    if ($fact->{type} eq 'string') {
-        return foundation_string($fact->{value});
+    if ($perl->{type} eq 'string') {
+        return foundation_string($perl->{value});
     }
-    if ($fact->{type} eq 'bool') {
-        return NSNumber->numberWithBool_($fact->{value} ? 1 : 0);
+    if ($perl->{type} eq 'bool') {
+        return NSNumber->numberWithBool_($perl->{value} ? 1 : 0);
     }
-    if ($fact->{type} eq 'array') {
+    if ($perl->{type} eq 'array') {
         my $array = foundation_array();
-        my $values = $fact->{value};
-        die "Invalid array fact\n" unless ref($values) eq 'ARRAY';
+        my $values = $perl->{value};
+        die "Invalid array perl\n" unless ref($values) eq 'ARRAY';
         for my $value (@{$values}) {
             $array->addObject_(foundation_string($value));
         }
         return $array;
     }
-    die "Unsupported fact type: $fact->{type}\n";
+    die "Unsupported perl type: $perl->{type}\n";
 }
 
 sub load_plist_file {
@@ -209,10 +209,10 @@ sub write_plist_file {
     ) ? 1 : 0;
 }
 
-sub write_facts {
-    my ($path, $facts) = @_;
+sub write_perls {
+    my ($path, $perls) = @_;
     die "Output path is required\n" unless defined $path && length $path;
-    die "Facts must be a hash reference\n" unless ref($facts) eq 'HASH';
+    die "Perls must be a hash reference\n" unless ref($perls) eq 'HASH';
 
     # One property list, one pen.
     my $lock_path = $path . '.lock';
@@ -227,9 +227,9 @@ sub write_facts {
     }
     $plist ||= _new_dictionary();
 
-    for my $key (sort keys %{$facts}) {
+    for my $key (sort keys %{$perls}) {
         $plist->setObject_forKey_(
-            _fact_object($facts->{$key}),
+            _perl_object($perls->{$key}),
             foundation_string($key)
         );
     }
@@ -323,18 +323,18 @@ sub run_condition {
 
     $output ||= File::Spec->catfile(managed_install_dir(), 'ConditionalItems.plist');
     my $debug = $verbose || ($ENV{MUNKI_PERLS_DEBUG} || '') eq '1';
-    print STDERR "munki-perls: collecting facts\n" if $debug;
-    my $facts = eval { $callback->({ output_path => $output }) };
-    if (!$facts || $@) {
-        print STDERR "munki-perls: fact collection failed\n";
+    print STDERR "munki-perls: collecting perls\n" if $debug;
+    my $perls = eval { $callback->({ output_path => $output }) };
+    if (!$perls || $@) {
+        print STDERR "munki-perls: perl collection failed\n";
         return 1;
     }
-    my $saved = eval { write_facts($output, $facts) };
+    my $saved = eval { write_perls($output, $perls) };
     if (!$saved || $@) {
         print STDERR "munki-perls: plist update failed\n";
         return 1;
     }
-    print STDERR "munki-perls: facts saved\n" if $debug;
+    print STDERR "munki-perls: perls saved\n" if $debug;
     return 0;
 }
 

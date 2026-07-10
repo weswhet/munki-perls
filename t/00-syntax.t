@@ -9,9 +9,9 @@ my @files;
 find(
     sub {
         push @files, $File::Find::name
-            if -f $_ && /\.(?:pl|pm)\z/;
+            if -f $_ && /\.(?:pl|pm|t)\z/;
     },
-    'conditions', 'tools'
+    'conditions', 'tools', 't'
 );
 
 for my $file (sort @files) {

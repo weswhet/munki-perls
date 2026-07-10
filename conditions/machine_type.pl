@@ -8,7 +8,7 @@ package MunkiPerls::Condition::MachineType;
 use Scalar::Util qw(blessed);
 use Foundation;
 use MunkiPerls qw(
-    fact_string objc_string parse_plist_output run_command run_condition
+    perl_string objc_string parse_plist_output run_command run_condition
 );
 use MunkiPerls::Upgrade qw(cached_hardware_snapshot);
 
@@ -90,7 +90,7 @@ unless (caller) {
     exit run_condition(\@ARGV, sub {
         my ($context) = @_;
         my $snapshot = cached_hardware_snapshot($context->{output_path});
-        return { machine_type => fact_string(
+        return { machine_type => perl_string(
             machine_type(hardware_snapshot => $snapshot)
         ) };
     });

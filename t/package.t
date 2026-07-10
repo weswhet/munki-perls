@@ -16,7 +16,7 @@ my $status = system {
     $^X
 } $^X, 'tools/build-pkg.pl', '--version', '0.1.42', '--output', $package;
 is($status, 0, 'package builds');
-ok(-f $package, 'unsigned package artifact exists');
+ok(-f $package, 'unsigned package file exists');
 
 my $expanded = "$directory/expanded";
 $status = system {
@@ -41,3 +41,13 @@ is(scalar @executables, 22, 'package contains exactly 22 executable conditions')
 like($listing, qr{\./sierra_upgrade_supported\.pl}, 'package contains split upgrade conditions');
 unlike($listing, qr{\./macos_upgrade_supported\.pl}, 'package excludes removed aggregate upgrade condition');
 like($listing, qr{\./lib/MunkiPerls\.pm}, 'package contains shared Foundation runtime');
+my @modules = $listing =~ /^\.\/(lib\/MunkiPerls(?:\/[A-Za-z]+)?\.pm)\s+/gm;
+is_deeply(
+    [sort @modules],
+    [qw(
+        lib/MunkiPerls.pm
+        lib/MunkiPerls/Perls.pm
+        lib/MunkiPerls/Upgrade.pm
+    )],
+    'package contains exactly the renamed shared modules'
+);

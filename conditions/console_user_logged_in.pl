@@ -4,9 +4,9 @@ use strict;
 use warnings;
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use MunkiPerls qw(fact_bool run_condition);
-use MunkiPerls::Facts qw(console_user_facts);
+use MunkiPerls qw(perl_bool run_condition);
+use MunkiPerls::Perls qw(console_user_perls);
 exit run_condition(\@ARGV, sub {
-    my (undef, $logged_in) = console_user_facts();
-    return { console_user_logged_in => fact_bool($logged_in) };
+    my (undef, $logged_in) = console_user_perls();
+    return { console_user_logged_in => perl_bool($logged_in) };
 });

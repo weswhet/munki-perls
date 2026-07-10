@@ -5,7 +5,7 @@ use warnings;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 package MunkiPerls::Condition::LocalUserDirs;
-use MunkiPerls qw(fact_array run_condition);
+use MunkiPerls qw(perl_array run_condition);
 
 sub local_user_dirs {
     my ($users_path) = @_;
@@ -23,7 +23,7 @@ sub local_user_dirs {
 
 unless (caller) {
     exit run_condition(\@ARGV, sub {
-        return { local_user_dirs => fact_array(local_user_dirs()) };
+        return { local_user_dirs => perl_array(local_user_dirs()) };
     });
 }
 1;

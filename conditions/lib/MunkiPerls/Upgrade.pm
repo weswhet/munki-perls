@@ -16,7 +16,7 @@ use MunkiPerls qw(
 
 our @EXPORT_OK = qw(
     cached_hardware_snapshot collect_hardware_snapshot
-    evaluate_upgrade_fact evaluate_upgrade_facts
+    evaluate_upgrade_perl evaluate_upgrade_perls
     is_version_at_least version_compare
 );
 
@@ -1188,7 +1188,7 @@ sub _physical_supported {
     return 0;
 }
 
-sub evaluate_upgrade_fact {
+sub evaluate_upgrade_perl {
     my ($key, $snapshot) = @_;
     die "Hardware snapshot must be a hash reference\n"
         unless ref($snapshot) eq 'HASH';
@@ -1199,7 +1199,7 @@ sub evaluate_upgrade_fact {
             last;
         }
     }
-    die "Unknown upgrade fact: $key\n" unless $wanted;
+    die "Unknown upgrade perl: $key\n" unless $wanted;
 
     my $at_target = version_compare(
         $snapshot->{version}, $wanted->{target}
@@ -1216,16 +1216,16 @@ sub evaluate_upgrade_fact {
     return _physical_supported($wanted, $snapshot);
 }
 
-sub evaluate_upgrade_facts {
+sub evaluate_upgrade_perls {
     my ($snapshot) = @_;
     die "Hardware snapshot must be a hash reference\n"
         unless ref($snapshot) eq 'HASH';
-    my %facts;
+    my %perls;
     for my $release (@RELEASES) {
         my $key = $release->{name} . '_upgrade_supported';
-        $facts{$key} = evaluate_upgrade_fact($key, $snapshot);
+        $perls{$key} = evaluate_upgrade_perl($key, $snapshot);
     }
-    return \%facts;
+    return \%perls;
 }
 
 1;

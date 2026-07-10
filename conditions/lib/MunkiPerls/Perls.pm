@@ -1,4 +1,4 @@
-package MunkiPerls::Facts;
+package MunkiPerls::Perls;
 
 use 5.008008;
 use strict;
@@ -8,10 +8,10 @@ use Exporter qw(import);
 use MunkiPerls qw(run_command);
 
 our @EXPORT_OK = qw(
-    command_status console_user_facts
+    command_status console_user_perls
 );
 
-sub console_user_facts {
+sub console_user_perls {
     my ($console_path) = @_;
     $console_path ||= '/dev/console';
     my @metadata = stat($console_path);

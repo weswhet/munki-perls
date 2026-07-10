@@ -27,7 +27,8 @@ jobs:
         run: |
           while IFS= read -r file; do
             /usr/bin/perl -Iconditions/lib -c "$file"
-          done < <(find conditions tools -type f \( -name '*.pl' -o -name '*.pm' \) -print)
+          done < <(find conditions tools t -type f \
+            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) -print)
       - name: Test
         run: /usr/bin/prove -lr t
       - name: Build and inspect package

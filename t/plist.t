@@ -9,8 +9,8 @@ use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(
-    fact_array fact_bool fact_string foundation_array foundation_dictionary
-    foundation_string load_plist_file objc_string run_condition write_facts
+    perl_array perl_bool perl_string foundation_array foundation_dictionary
+    foundation_string load_plist_file objc_string run_condition write_perls
     write_plist_file
 );
 
@@ -47,7 +47,7 @@ is(run_condition(
     sub {
         my ($context) = @_;
         $callback_output = $context->{output_path};
-        return { context => fact_string('received') };
+        return { context => perl_string('received') };
     },
 ), 0, 'condition runner accepts a callback context');
 is($callback_output, $context_output, 'callback context contains the resolved output path');
@@ -64,7 +64,7 @@ my ($cli_status, $cli_stdout, $cli_stderr);
     local @ARGV = @global_arguments;
     ($cli_status, $cli_stdout, $cli_stderr) = capture_condition(
         \@help_arguments,
-        sub { die "help must not collect facts\n" },
+        sub { die "help must not collect perls\n" },
     );
     is_deeply(\@ARGV, \@global_arguments, 'condition runner preserves localized global arguments');
 }
@@ -76,7 +76,7 @@ is($cli_stderr, '', 'help does not print an error');
 my @unknown_arguments = ('--unknown');
 ($cli_status, $cli_stdout, $cli_stderr) = capture_condition(
     \@unknown_arguments,
-    sub { die "unknown options must not collect facts\n" },
+    sub { die "unknown options must not collect perls\n" },
 );
 is($cli_status, 2, 'unknown option is rejected');
 is_deeply(\@unknown_arguments, ['--unknown'], 'unknown-option input remains unchanged');
@@ -85,14 +85,14 @@ like($cli_stderr, qr{Usage: }, 'unknown option prints usage to standard error');
 my @positional_arguments = ('unexpected');
 ($cli_status, $cli_stdout, $cli_stderr) = capture_condition(
     \@positional_arguments,
-    sub { die "positional arguments must not collect facts\n" },
+    sub { die "positional arguments must not collect perls\n" },
 );
 is($cli_status, 2, 'positional argument is rejected');
 is_deeply(\@positional_arguments, ['unexpected'], 'positional input remains unchanged');
 like($cli_stderr, qr{Usage: }, 'positional argument prints usage to standard error');
 
 my $absent = "$directory/absent.plist";
-ok(write_facts($absent, { greeting => fact_string('hello') }), 'creates absent plist');
+ok(write_perls($absent, { greeting => perl_string('hello') }), 'creates absent plist');
 is(objc_string(value_for(load_plist_file($absent, dictionary => 1), 'greeting')),
     'hello', 'reads newly created XML plist');
 
@@ -100,7 +100,7 @@ my $binary = "$directory/binary.plist";
 my $binary_root = foundation_dictionary();
 $binary_root->setObject_forKey_(foundation_string('preserved'), foundation_string('old'));
 ok(save_native($binary, $binary_root, 200), 'creates binary plist with Foundation');
-ok(write_facts($binary, { new => fact_bool(1) }), 'merges binary input');
+ok(write_perls($binary, { new => perl_bool(1) }), 'merges binary input');
 my $binary_result = load_plist_file($binary, dictionary => 1);
 is(objc_string(value_for($binary_result, 'old')), 'preserved', 'preserves binary plist value');
 is(value_for($binary_result, 'new')->objCType(), 'c', 'writes native boolean');
@@ -119,11 +119,11 @@ close $raw_fh;
 my $raw_data = NSData->dataWithContentsOfFile_(foundation_string($raw_path));
 $rich_root->setObject_forKey_($raw_data, foundation_string('data'));
 ok(save_native($rich, $rich_root, 100), 'creates rich XML plist');
-ok(write_facts($rich, {
-    unicode => fact_string("J\x{00fc}rgen \x{1f680}"),
-    enabled => fact_bool(0),
-    names => fact_array('one', "\x{4e8c}"),
-}), 'merges Unicode and typed facts');
+ok(write_perls($rich, {
+    unicode => perl_string("J\x{00fc}rgen \x{1f680}"),
+    enabled => perl_bool(0),
+    names => perl_array('one', "\x{4e8c}"),
+}), 'merges Unicode and typed perls');
 my $rich_result = load_plist_file($rich, dictionary => 1);
 is(objc_string(value_for($rich_result, 'unicode')), "J\x{00fc}rgen \x{1f680}", 'Unicode round trips');
 is(value_for($rich_result, 'enabled')->objCType(), 'c', 'false remains a boolean');
@@ -140,7 +140,7 @@ for my $case (
     open(my $fh, '>', $path) or die $!;
     print {$fh} $case->[1];
     close $fh;
-    ok(write_facts($path, { recovered => fact_string('yes') }), "$case->[0] plist is recovered");
+    ok(write_perls($path, { recovered => perl_string('yes') }), "$case->[0] plist is recovered");
     is(objc_string(value_for(load_plist_file($path, dictionary => 1), 'recovered')),
         'yes', "$case->[0] recovery is valid");
 }
@@ -149,7 +149,7 @@ my $non_dictionary = "$directory/array-root.plist";
 my $array_root = foundation_array();
 $array_root->addObject_(foundation_string('unrelated'));
 ok(save_native($non_dictionary, $array_root, 100), 'creates non-dictionary plist');
-ok(write_facts($non_dictionary, { recovered => fact_string('yes') }), 'non-dictionary root is replaced');
+ok(write_perls($non_dictionary, { recovered => perl_string('yes') }), 'non-dictionary root is replaced');
 ok(load_plist_file($non_dictionary, dictionary => 1), 'replacement root is a dictionary');
 
 my $concurrent = "$directory/concurrent.plist";
@@ -159,7 +159,7 @@ for my $number (1 .. 8) {
     die "fork failed" unless defined $pid;
     if ($pid == 0) {
         my $ok = eval {
-            write_facts($concurrent, { "key$number" => fact_string("value$number") });
+            write_perls($concurrent, { "key$number" => perl_string("value$number") });
         };
         exit($ok ? 0 : 1);
     }
@@ -173,9 +173,9 @@ my $concurrent_result = load_plist_file($concurrent, dictionary => 1);
 is($concurrent_result->count(), 8, 'sidecar locking preserves every concurrent update');
 
 my $atomic = "$directory/atomic.plist";
-write_facts($atomic, { first => fact_string('one') });
+write_perls($atomic, { first => perl_string('one') });
 my $before_inode = (stat($atomic))[1];
-write_facts($atomic, { second => fact_string('two') });
+write_perls($atomic, { second => perl_string('two') });
 my $after_inode = (stat($atomic))[1];
 isnt($after_inode, $before_inode, 'atomic Foundation write replaces the destination');
 
@@ -184,7 +184,7 @@ SKIP: {
     my $locked_directory = "$directory/no-write";
     mkpath($locked_directory, 0, 0500);
     my $failure = eval {
-        write_facts("$locked_directory/output.plist", { key => fact_string('value') });
+        write_perls("$locked_directory/output.plist", { key => perl_string('value') });
         1;
     };
     ok(!$failure, 'permission failure is reported');

@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/logo.png" alt="munki-perls — native Mac facts in classic Perl" width="720">
+  <img src="assets/logo.png" alt="munki-perls — native Mac perls in classic Perl" width="720">
 </p>
 
 <h1 align="center">munki-perls</h1>
 
 <p align="center">
-  <strong>Typed Munki facts for Macs from Leopard onward.</strong><br>
-  Twenty-two quiet condition scripts, twenty-two useful answers, and no additional runtime to explain.
+  <strong>Typed Munki perls for Macs from Leopard onward.</strong><br>
+  Twenty-two quiet condition scripts, twenty-two useful perls, and no additional runtime to explain.
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 > the machine.
 
 When a Mac checks in, Munki already knows quite a lot. The difficult question
-is usually the one fact it does not know: whether FileVault is on, which user
+is usually the one perl it does not know: whether FileVault is on, which user
 owns the console, whether the hardware can take the next macOS upgrade, or
 what sort of virtual machine has appeared in inventory this morning.
 
@@ -36,7 +36,7 @@ remain pending; see
 [Testing](#testing) for the validation boundary.
 
 The result is deliberately plain: native plist values, serialized updates, a
-strict subprocess allowlist, and facts that keep their historical names and
+strict subprocess allowlist, and perls that keep their historical names and
 semantics. Inventory should be informative. Its implementation need not be an
 event.
 
@@ -53,7 +53,7 @@ event.
 
 ## What it knows
 
-The facts fall into four families. They share one writer and one contract, so
+The perls fall into four families. They share one writer and one contract, so
 adding an answer does not create a new dialect of “true.”
 
 | Family | Answers |
@@ -63,12 +63,12 @@ adding an answer does not create a new dialect of “true.”
 | **Hardware** | physical or virtual, virtual-machine vendor |
 | **Upgrade paths** | Sierra through Goldengate, evaluated against OS version and Apple hardware identifiers |
 
-### Fact contract
+### Perl contract
 
-The installed scripts follow a one-file-per-fact contract: every executable is
-named `<fact_key>.pl` and writes only that matching key. Together they provide
-exactly these keys and native plist types. Fact-specific collection logic lives
-beside its executable; shared modules retain only cross-fact primitives and
+The installed scripts follow a one-perl-per-file contract: every executable is
+named `<perl_key>.pl` and writes only that matching key. Together they provide
+exactly these keys and native plist types. Perl-specific collection logic lives
+beside its executable; shared modules retain only cross-perl primitives and
 hardware compatibility data.
 
 | Key | Native plist type |
@@ -100,7 +100,7 @@ hardware compatibility data.
 value. That historical collision is part of the contract, now with the courtesy
 of documentation. `physical_or_virtual` retains its simpler two-value domain.
 
-Community facts remain unbundled for now. Twenty-two keys should keep the
+Community perls remain unbundled for now. Twenty-two keys should keep the
 property list adequately occupied.
 
 ## Installation
@@ -124,7 +124,7 @@ sudo /bin/mkdir -p /usr/local/munki/conditions
 sudo /usr/bin/ditto conditions /usr/local/munki/conditions
 ```
 
-Munki runs each executable and merges its facts into the configured
+Munki runs each executable and merges its perls into the configured
 `ManagedInstallDir/ConditionalItems.plist`.
 
 ## Using the conditions
@@ -139,13 +139,13 @@ override is useful for testing without involving the production plist:
 ```
 
 Set `MUNKI_PERLS_DEBUG=1` for the same concise diagnostics as `--verbose`.
-Diagnostics report collection and write status but never usernames or fact
+Diagnostics report collection and write status but never usernames or perl
 values. Missing commands on older systems yield the established `Unknown` or
 `NONE` fallback and allow the remaining scripts to continue with their day.
 
 ## Upgrade compatibility
 
-Each upgrade condition emits one boolean fact. The ten upgrade conditions
+Each upgrade condition emits one boolean perl. The ten upgrade conditions
 share a reboot-scoped hardware snapshot and evaluate their named result in the
 same order:
 
@@ -155,7 +155,7 @@ same order:
 4. A physical Mac must match the release's model, board, or hardware-target
    tables.
 
-| Fact | Target | Eligible source versions |
+| Perl | Target | Eligible source versions |
 | --- | ---: | --- |
 | `sierra_upgrade_supported` | 10.12 | 10.7–10.11 |
 | `mojave_upgrade_supported` | 10.14 | 10.7–10.13 |
@@ -168,7 +168,7 @@ same order:
 | `tahoe_upgrade_supported` | 26 | 10.7 through the release below 26 |
 | `goldengate_upgrade_supported` | 27 | 10.7 through the release below 27 |
 
-Leopard runtime support does not change upgrade eligibility. These facts retain
+Leopard runtime support does not change upgrade eligibility. These perls retain
 their existing minimum source versions: 10.7 for every row shown as 10.7 and
 10.9 for Catalina.
 
@@ -188,7 +188,7 @@ The remaining hardware tables continue the lineage at
   `<output>.munki-perls-hardware-cache.plist`. Its schema and `kern.boottime`
   identifier keep it valid only for the current boot. A malformed or stale
   cache—or any lock or write failure—falls back to live collection and never
-  prevents a fact from being written.
+  prevents a perl from being written.
 - Subprocesses use absolute paths and direct argument vectors. The shell is not
   invited; it tends to bring interpretation with it.
 - Virtual hardware is detected from the shared snapshot. Only `machine_type.pl`
@@ -227,7 +227,8 @@ than attempting to improve arithmetic.
 Run the syntax and test suites with Apple's Perl:
 
 ```sh
-find conditions tools -type f \( -name '*.pl' -o -name '*.pm' \) \
+find conditions tools t -type f \
+  \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) \
   -exec /usr/bin/perl -Iconditions/lib -c {} \;
 /usr/bin/prove -lr t
 ```
@@ -251,5 +252,5 @@ is expected to be thoroughly boring. Here, that is a feature.
 ## Lineage and license
 
 Licensed under the [Apache License 2.0](LICENSE.md). Hardware compatibility
-tables and original fact behavior follow the `munki-facts` lineage described
+tables and original perl behavior follow the `munki-facts` lineage described
 above.

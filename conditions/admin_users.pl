@@ -5,7 +5,7 @@ use warnings;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 package MunkiPerls::Condition::AdminUsers;
-use MunkiPerls qw(fact_array run_condition);
+use MunkiPerls qw(perl_array run_condition);
 
 sub admin_users {
     my (undef, undef, undef, $members) = getgrnam('admin');
@@ -15,7 +15,7 @@ sub admin_users {
 
 unless (caller) {
     exit run_condition(\@ARGV, sub {
-        return { admin_users => fact_array(admin_users()) };
+        return { admin_users => perl_array(admin_users()) };
     });
 }
 1;

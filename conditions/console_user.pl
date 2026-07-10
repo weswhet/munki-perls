@@ -4,9 +4,9 @@ use strict;
 use warnings;
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use MunkiPerls qw(fact_string run_condition);
-use MunkiPerls::Facts qw(console_user_facts);
+use MunkiPerls qw(perl_string run_condition);
+use MunkiPerls::Perls qw(console_user_perls);
 exit run_condition(\@ARGV, sub {
-    my ($username) = console_user_facts();
-    return { console_user => fact_string($username) };
+    my ($username) = console_user_perls();
+    return { console_user => perl_string($username) };
 });

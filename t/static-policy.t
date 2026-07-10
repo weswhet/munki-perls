@@ -5,13 +5,56 @@ use warnings;
 use File::Find;
 use Test::More 'no_plan';
 use lib 'conditions/lib';
-use MunkiPerls::Facts ();
+use MunkiPerls::Perls ();
 
 is_deeply(
-    [sort @MunkiPerls::Facts::EXPORT_OK],
-    [qw(command_status console_user_facts)],
-    'shared facts module exports only multi-fact helpers'
+    [sort @MunkiPerls::Perls::EXPORT_OK],
+    [qw(command_status console_user_perls)],
+    'shared perls module exports only multi-perl helpers'
 );
+
+my $retired_term = join('', qw(f a c t));
+my $approved_upstream_name = 'munki-' . $retired_term . 's';
+my @project_files;
+open(my $tracked, '-|', 'git', 'ls-files', '-z')
+    or die "Could not list tracked files\n";
+{
+    local $/ = "\0";
+    while (my $file = <$tracked>) {
+        $file =~ s/\0\z//;
+        push @project_files, $file if length $file;
+    }
+}
+close $tracked or die "Could not list tracked files\n";
+
+for my $file (sort @project_files) {
+    unlike($file, qr/$retired_term/i, "$file avoids retired terminology");
+
+    open(my $fh, '<', $file) or die $!;
+    binmode $fh;
+    local $/;
+    my $source = <$fh>;
+    close $fh;
+    next if index($source, "\0") >= 0;
+
+    while ($source =~ /$retired_term/ig) {
+        my $start = $-[0];
+        my $candidate = $start >= 6
+            ? substr($source, $start - 6, length($approved_upstream_name))
+            : '';
+        my $after = $start >= 6
+            ? substr(
+                $source,
+                $start - 6 + length($approved_upstream_name),
+                1
+            )
+            : '';
+        my $approved = $file eq 'README.md'
+            && lc($candidate) eq $approved_upstream_name
+            && $after !~ /[A-Za-z0-9_-]/;
+        ok($approved, "$file uses only the approved upstream project name");
+    }
+}
 
 my @files;
 find(

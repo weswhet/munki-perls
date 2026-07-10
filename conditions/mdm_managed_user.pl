@@ -8,7 +8,7 @@ package MunkiPerls::Condition::MDMManagedUser;
 use Scalar::Util qw(blessed);
 use Foundation;
 use MunkiPerls qw(
-    fact_string objc_string parse_plist_output run_command run_condition
+    perl_string objc_string parse_plist_output run_command run_condition
 );
 
 sub _managed_uuid_in_object {
@@ -81,7 +81,7 @@ sub mdm_managed_user {
 
 unless (caller) {
     exit run_condition(\@ARGV, sub {
-        return { mdm_managed_user => fact_string(mdm_managed_user()) };
+        return { mdm_managed_user => perl_string(mdm_managed_user()) };
     });
 }
 1;

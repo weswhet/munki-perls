@@ -5,7 +5,7 @@ use warnings;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 package MunkiPerls::Condition::BackToMyMacConfigured;
-use MunkiPerls qw(fact_bool run_command run_condition system_version);
+use MunkiPerls qw(perl_bool run_command run_condition system_version);
 use MunkiPerls::Upgrade qw(is_version_at_least);
 
 sub backtomymac_configured {
@@ -32,7 +32,7 @@ sub backtomymac_configured {
 unless (caller) {
     exit run_condition(\@ARGV, sub {
         return {
-            backtomymac_configured => fact_bool(backtomymac_configured())
+            backtomymac_configured => perl_bool(backtomymac_configured())
         };
     });
 }
