@@ -69,7 +69,7 @@ jobs:
           printf '%s  %s\n' "$SHA256" "$archive" | shasum -a 256 --check
           command -v zstd >/dev/null 2>&1 || brew install zstd
           zstd --decompress --long=30 "$archive" \
-            --output "$RUNNER_TEMP/perl-5.8.8.tar"
+            -o "$RUNNER_TEMP/perl-5.8.8.tar"
           mkdir -p "$RUNNER_TEMP/perl-5.8.8" "$RUNNER_TEMP/foundation-stub"
           tar -xf "$RUNNER_TEMP/perl-5.8.8.tar" \
             -C "$RUNNER_TEMP/perl-5.8.8"
