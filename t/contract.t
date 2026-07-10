@@ -38,7 +38,7 @@ my %arrays = map { $_ => 1 } qw(
 );
 my %strings = map { $_ => 1 } qw(
     console_user crashplan_username filevault_status gatekeeper_status
-    machine_type mdm_managed_user physical_or_virtual sip_status
+    mdm_managed_user physical_or_virtual sip_status virtual_type
 );
 my @bundled_keys = sort qw(
     admin_users
@@ -52,7 +52,6 @@ my @bundled_keys = sort qw(
     gatekeeper_status
     goldengate_upgrade_supported
     local_user_dirs
-    machine_type
     mdm_managed_user
     mojave_upgrade_supported
     monterey_upgrade_supported
@@ -64,6 +63,17 @@ my @bundled_keys = sort qw(
     system_extensions
     tahoe_upgrade_supported
     ventura_upgrade_supported
+    virtual_type
+);
+
+ok(
+    do {
+        my $machine_type = $plist->objectForKey_(
+            foundation_string('machine_type')
+        );
+        !blessed($machine_type) || !$$machine_type;
+    },
+    'runner does not emit machine_type'
 );
 
 for my $key (@bundled_keys) {
@@ -86,3 +96,21 @@ for my $key (@bundled_keys) {
         is($value->objCType(), 'c', "$key is specifically a plist boolean");
     }
 }
+
+my $only_output = "$directory/VirtualType.plist";
+$status = system {
+    $^X
+} $^X, 'conditions/munki_perls.pl', '--only', 'virtual_type',
+    '--output', $only_output;
+is($status, 0, '--only virtual_type selects the bundled plugin');
+
+my $only_plist = load_plist_file($only_output, dictionary => 1);
+is($only_plist->count(), 1, '--only virtual_type writes one key');
+my $only_value = $only_plist->objectForKey_(
+    foundation_string('virtual_type')
+);
+ok(
+    blessed($only_value) && $$only_value
+        && $only_value->isKindOfClass_(NSString->class()),
+    '--only virtual_type writes a string'
+);

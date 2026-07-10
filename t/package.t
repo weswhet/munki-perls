@@ -50,6 +50,16 @@ like(
 );
 like(
     $listing,
+    qr{\./perls/virtual_type\.pl\s+100644\b},
+    'package contains non-executable virtual-type plugin'
+);
+unlike(
+    $listing,
+    qr{\./perls/machine_type\.pl},
+    'package excludes retired machine-type plugin'
+);
+like(
+    $listing,
     qr{\./perls/sierra_upgrade_supported\.pl\s+100644\b},
     'package contains non-executable split upgrade plugins'
 );
@@ -70,6 +80,7 @@ for my $path (
     "$legacy_install/admin_users.pl",
     "$legacy_install/site_custom.pl",
     "$legacy_install/perls/site_custom.pl",
+    "$legacy_install/perls/machine_type.pl",
 ) {
     open(my $file, '>', $path) or die $!;
     print {$file} "test\n";
@@ -85,3 +96,7 @@ is($status, 0, 'legacy cleanup runs against an injected installation');
 ok(!-e "$legacy_install/admin_users.pl", 'known legacy executable is removed');
 ok(-e "$legacy_install/site_custom.pl", 'unrelated top-level condition is preserved');
 ok(-e "$legacy_install/perls/site_custom.pl", 'custom plugin is preserved');
+ok(
+    !-e "$legacy_install/perls/machine_type.pl",
+    'retired installed machine-type plugin is removed'
+);
