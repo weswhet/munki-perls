@@ -2,7 +2,6 @@ use 5.008008;
 use strict;
 use warnings;
 
-use File::Path qw(mkpath);
 use File::Temp qw(tempdir);
 use Test::More;
 
@@ -72,31 +71,7 @@ like(
     'package contains the plugin runtime'
 );
 
-ok(-x "$expanded/Scripts/postinstall", 'package contains executable postinstall cleanup');
-
-my $legacy_install = "$directory/legacy-install";
-mkpath("$legacy_install/perls", 0, 0755);
-for my $path (
-    "$legacy_install/admin_users.pl",
-    "$legacy_install/site_custom.pl",
-    "$legacy_install/perls/site_custom.pl",
-    "$legacy_install/perls/machine_type.pl",
-) {
-    open(my $file, '>', $path) or die $!;
-    print {$file} "test\n";
-    close $file or die $!;
-}
-{
-    local $ENV{MUNKI_PERLS_CONDITIONS_DIR} = $legacy_install;
-    $status = system {
-        $^X
-    } $^X, 'tools/pkg-scripts/postinstall';
-}
-is($status, 0, 'legacy cleanup runs against an injected installation');
-ok(!-e "$legacy_install/admin_users.pl", 'known legacy executable is removed');
-ok(-e "$legacy_install/site_custom.pl", 'unrelated top-level condition is preserved');
-ok(-e "$legacy_install/perls/site_custom.pl", 'custom plugin is preserved');
 ok(
-    !-e "$legacy_install/perls/machine_type.pl",
-    'retired installed machine-type plugin is removed'
+    !-e "$expanded/Scripts/postinstall",
+    'package contains no postinstall script'
 );

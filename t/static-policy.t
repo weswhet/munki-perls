@@ -60,7 +60,7 @@ my @files;
 find(
     sub {
         push @files, $File::Find::name
-            if -f $_ && (/\.(?:pl|pm)\z/ || $_ eq 'postinstall');
+            if -f $_ && /\.(?:pl|pm)\z/;
     },
     'conditions', 'tools'
 );

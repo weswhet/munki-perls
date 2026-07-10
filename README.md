@@ -123,19 +123,12 @@ sudo /usr/sbin/installer -pkg munki-perls-0.1.N.pkg -target /
 The package installs one executable runner, its shared modules, and the bundled
 non-executable plugins at `/usr/local/munki/conditions`.
 
-To install directly from a checkout, first remove the retired bundled
-executables from older releases, then preserve modes while copying the new
-layout:
+To install directly from a checkout, preserve modes while copying the layout:
 
 ```sh
-sudo tools/pkg-scripts/postinstall
 sudo /bin/mkdir -p /usr/local/munki/conditions
 sudo /usr/bin/ditto conditions /usr/local/munki/conditions
 ```
-
-The cleanup script names only files previously owned by this project. It does
-not remove unrelated top-level conditions or custom plugins. Package upgrades
-run the same cleanup automatically.
 
 Munki executes `munki_perls.pl` and ignores the `perls` directory. The runner
 loads every valid plugin and writes their combined output to the configured
@@ -333,8 +326,7 @@ Run the syntax and test suites with Apple's Perl:
 
 ```sh
 find conditions tools t -type f \
-  \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \
-    -o -name postinstall \) \
+  \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) \
   -exec /usr/bin/perl -Iconditions/lib -c {} \;
 /usr/bin/prove -lr t
 ```

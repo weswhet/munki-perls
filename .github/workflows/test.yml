@@ -34,8 +34,7 @@ jobs:
           while IFS= read -r file; do
             /usr/bin/perl -Iconditions/lib -c "$file"
           done < <(find conditions tools t -type f \
-            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \
-              -o -name 'postinstall' \) -print)
+            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) -print)
       - name: Test
         run: /usr/bin/prove -lr t
       - name: Build and inspect package
@@ -111,8 +110,7 @@ jobs:
           while IFS= read -r file; do
             "$PERL588" -Iconditions/lib -c "$file"
           done < <(find conditions tools t -type f \
-            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \
-              -o -name 'postinstall' \) -print)
+            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) -print)
       - name: Run Foundation-independent tests
         run: |
           "$PERL588" "$RUNNER_TEMP/perl-5.8.8/bin/prove" -lv \
