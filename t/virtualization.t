@@ -11,13 +11,13 @@ use MunkiPerls qw(
 );
 use MunkiPerls::Plugins qw(load_plugin);
 
-my $machine_plugin = load_plugin('conditions/perls/machine_type.pl');
+my $virtual_plugin = load_plugin('conditions/perls/virtual_type.pl');
 my $physical_plugin = load_plugin('conditions/perls/physical_or_virtual.pl');
-my $machine_type = $machine_plugin->{package}->can('machine_type');
+my $virtual_type = $virtual_plugin->{package}->can('virtual_type');
 my $physical_or_virtual =
     $physical_plugin->{package}->can('physical_or_virtual');
 die "virtualization plugins are missing collectors\n"
-    unless $machine_type && $physical_or_virtual;
+    unless $virtual_type && $physical_or_virtual;
 
 sub profiler_fixture {
     my (%values) = @_;
@@ -55,14 +55,14 @@ sub profiler_fixture {
 }
 
 my $physical_probe_count = 0;
-my $physical = $machine_type->(
+my $physical = $virtual_type->(
     hardware_snapshot => { is_virtual => 0 },
     profiler_probe => sub {
         $physical_probe_count++;
         return (1, profiler_fixture(boot_rom => 'VMW'));
     },
 );
-is($physical, 'physical', 'physical machine type remains physical');
+is($physical, '', 'physical virtual type is empty');
 is($physical_probe_count, 0, 'physical systems do not invoke system_profiler');
 is(
     $physical_or_virtual->({ is_virtual => 0 }),
@@ -75,14 +75,14 @@ my @classifications = (
     ['virtualbox', profiler_fixture(boot_rom => 'VirtualBox')],
     ['parallels', profiler_fixture(ethernet_vendor => 'vendor-id: 0x1ab8')],
     ['parallels', profiler_fixture(ethernet_vendor => '0X1AF4')],
-    ['unknown_virtual', profiler_fixture(boot_rom => 'Other', ethernet_vendor => '0x1234')],
-    ['unknown_virtual', 'not a property list'],
+    ['unknown', profiler_fixture(boot_rom => 'Other', ethernet_vendor => '0x1234')],
+    ['unknown', 'not a property list'],
 );
 
 for my $case (@classifications) {
     my ($expected, $fixture) = @{$case};
     my $probe_count = 0;
-    my $type = $machine_type->(
+    my $type = $virtual_type->(
         hardware_snapshot => { is_virtual => 1 },
         profiler_probe => sub {
             $probe_count++;
@@ -93,19 +93,19 @@ for my $case (@classifications) {
     is($probe_count, 1, "$expected classification uses one profiler probe");
 }
 
-my $failed = $machine_type->(
+my $failed = $virtual_type->(
     hardware_snapshot => { is_virtual => 1 },
     profiler_probe => sub { return (0, '') },
 );
-is($failed, 'unknown_virtual', 'failed profiler output is unknown virtual');
+is($failed, 'unknown', 'failed profiler output has unknown virtual type');
 
 is(
-    $machine_type->(
+    $virtual_type->(
         hardware_snapshot => { is_virtual => 1 },
         profiler_output => profiler_fixture(boot_rom => 'VMW'),
     ),
     'vmware',
-    'machine_type accepts injected profiler output'
+    'virtual_type accepts injected profiler output'
 );
 
 is(

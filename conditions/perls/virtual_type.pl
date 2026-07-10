@@ -42,7 +42,7 @@ sub _plist_strings_for_key {
 sub _virtual_machine_type {
     my ($output) = @_;
     my $plist = parse_plist_output($output);
-    return 'unknown_virtual' unless blessed($plist) && $$plist;
+    return 'unknown' unless blessed($plist) && $$plist;
 
     my @boot_rom_versions = _plist_strings_for_key(
         $plist, 'boot_rom_version'
@@ -60,13 +60,13 @@ sub _virtual_machine_type {
     for my $vendor (@ethernet_vendors) {
         return 'parallels' if $vendor =~ /0x1a(?:b8|f4)/i;
     }
-    return 'unknown_virtual';
+    return 'unknown';
 }
 
-sub machine_type {
+sub virtual_type {
     my (%options) = @_;
     my $snapshot = $options{hardware_snapshot};
-    return 'physical' unless $snapshot->{is_virtual};
+    return '' unless $snapshot->{is_virtual};
 
     my ($ok, $output);
     if ($options{profiler_probe}) {
@@ -79,14 +79,14 @@ sub machine_type {
             'SPEthernetDataType', 'SPHardwareDataType'
         );
     }
-    return $ok ? _virtual_machine_type($output) : 'unknown_virtual';
+    return $ok ? _virtual_machine_type($output) : 'unknown';
 }
 
 sub perls {
     my ($context) = @_;
     my $snapshot = cached_hardware_snapshot($context->{output_path});
-    return { machine_type => perl_string(
-        machine_type(hardware_snapshot => $snapshot)
+    return { virtual_type => perl_string(
+        virtual_type(hardware_snapshot => $snapshot)
     ) };
 }
 1;

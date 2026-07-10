@@ -87,7 +87,6 @@ plugins provide the following keys and native plist types.
 | `gatekeeper_status` | string |
 | `goldengate_upgrade_supported` | boolean |
 | `local_user_dirs` | array of strings |
-| `machine_type` | string: `physical`, `vmware`, `virtualbox`, `parallels`, or `unknown_virtual` |
 | `mdm_hours_since_install` | integer |
 | `mdm_install_date` | string: UTC ISO 8601 timestamp, or empty when unavailable |
 | `mdm_managed_user` | string |
@@ -102,10 +101,12 @@ plugins provide the following keys and native plist types.
 | `system_extensions` | array of currently enabled system-extension bundle identifiers |
 | `tahoe_upgrade_supported` | boolean |
 | `ventura_upgrade_supported` | boolean |
+| `virtual_type` | string: empty on physical Macs; `vmware`, `virtualbox`, `parallels`, or `unknown` on virtual Macs |
 
-`machine_type` intentionally replaces Munki's built-in `laptop`/`desktop`
-value. That historical collision is part of the contract, now with the courtesy
-of documentation. `physical_or_virtual` retains its simpler two-value domain.
+`virtual_type` identifies recognized virtual-machine vendors without replacing
+Munki's built-in `machine_type` condition. It is an empty string on physical
+Macs and `unknown` when a virtual machine's vendor cannot be determined.
+`physical_or_virtual` retains its simpler two-value domain.
 
 `system_extensions` reads Apple's system-extension database and includes only
 records in the `activated_enabled` state. The `approved_system_extension_*`
@@ -160,7 +161,7 @@ production plist:
 
 ```sh
 /usr/local/munki/conditions/munki_perls.pl \
-  --only ventura_upgrade_supported \
+  --only virtual_type \
   --output /tmp/ConditionalItems.plist \
   --verbose
 ```
@@ -211,7 +212,7 @@ Plugins are loaded in sorted filename order and isolated namespaces. A broken
 plugin is diagnosed and skipped without losing valid results from the others.
 When plugins return the same key, the later filename wins; verbose mode reports
 the replacement. Prefix an intentional site override accordingly, for example
-`zz_site_machine_type.pl`.
+`zz_site_virtual_type.pl`.
 
 Values use explicit constructors so plist booleans and numbers do not become
 ambiguous Perl scalars. Arrays and dictionaries may be nested recursively;
@@ -269,9 +270,9 @@ The remaining hardware tables continue the lineage at
 - Bundled subprocesses use allowlisted absolute paths and direct argument
   vectors. The shell is not invited; it tends to bring interpretation with it.
 - Virtual hardware is detected from the shared snapshot. Only the
-  `machine_type.pl` plugin makes the vendor-specific `system_profiler` query,
+  `virtual_type.pl` plugin makes the vendor-specific `system_profiler` query,
   and only for virtual Macs, to distinguish VMware, VirtualBox, Parallels, and
-  the entirely respectable `unknown_virtual`.
+  the entirely respectable `unknown`.
 
 Back to My Mac is queried through `scutil` only on Mojave and older and is
 always false on Catalina and newer, which settled that question rather neatly.
