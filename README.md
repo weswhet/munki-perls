@@ -15,7 +15,7 @@ result should be pleasantly uneventful.
 
 ## Fact contract
 
-The 11 executable scripts provide exactly these 20 keys. Munki does appreciate
+The 11 executable scripts provide exactly these 22 keys. Munki does appreciate
 the paperwork being in order.
 
 | Key | Native plist type |
@@ -31,19 +31,22 @@ the paperwork being in order.
 | `gatekeeper_status` | string |
 | `goldengate_upgrade_supported` | boolean |
 | `local_user_dirs` | array of strings |
+| `machine_type` | string (`physical`, `vmware`, `virtualbox`, `parallels`, or `unknown_virtual`) |
 | `mdm_managed_user` | string |
 | `mojave_upgrade_supported` | boolean |
 | `monterey_upgrade_supported` | boolean |
 | `physical_or_virtual` | string (`physical` or `virtual`) |
 | `sequoia_upgrade_supported` | boolean |
+| `sierra_upgrade_supported` | boolean |
 | `sip_status` | string |
 | `sonoma_upgrade_supported` | boolean |
 | `tahoe_upgrade_supported` | boolean |
 | `ventura_upgrade_supported` | boolean |
 
-The removed `sierra_upgrade_supported`, collision-prone `machine_type`, and
-community facts are intentionally absent; twenty keys seemed sufficient for
-one property list.
+`machine_type` intentionally replaces Munki's built-in `laptop`/`desktop`
+value with the vendor-aware domain above. This is the historical collision,
+now documented instead of merely surprising. Community facts remain unbundled
+for now; twenty-two keys should keep the property list adequately occupied.
 
 ## Installation and use
 
@@ -64,9 +67,12 @@ fact values.
 Missing commands on older systems yield the established `Unknown` or `NONE`
 fallback and allow the remaining scripts to continue with their day. Back to
 My Mac is queried directly through `scutil` only on Mojave and older and is
-always false on Catalina and newer. Mojave accepts eligible source systems from
-10.7–10.13; Catalina accepts 10.9–10.14. Every upgrade check rejects a system
-already at or above the target before considering virtual-machine eligibility.
+always false on Catalina and newer. Sierra accepts eligible source systems from
+10.7–10.11 using the final model and board tables from the parent of
+`munki-facts` removal commit `bbeee28dd2a5`; Mojave accepts 10.7–10.13, and
+Catalina accepts 10.9–10.14.
+Every upgrade check rejects a system already at or above the target before
+considering virtual-machine eligibility.
 
 ## Maintainer tools
 
@@ -104,7 +110,7 @@ CI covers ARM on `macos-15` and Intel on `macos-26-intel`; injected OS and
 hardware fixtures exercise earlier macOS branches. Before a release, also
 smoke-test the installed package on real or virtual Lion, Mountain Lion,
 Mavericks, Yosemite, El Capitan, Sierra, High Sierra, and Mojave systems.
-Confirm that each script runs under the bundled `/usr/bin/perl`, all 20 types
+Confirm that each script runs under the bundled `/usr/bin/perl`, all 22 types
 are native plist types, and existing Munki values survive an update.
 
 ## License and attribution

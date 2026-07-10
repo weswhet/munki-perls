@@ -23,6 +23,22 @@ sub facts {
 is(version_compare('10.15.7', '11'), -1, '10.15 sorts below 11');
 is(version_compare('26.0', '16'), 1, 'Tahoe major 26 is not treated as 16');
 
+ok(facts(version => '10.7')->{sierra_upgrade_supported}, 'Sierra lower boundary supported');
+ok(facts(version => '10.11.6')->{sierra_upgrade_supported}, 'Sierra upper source boundary supported');
+ok(!facts(version => '10.6.8', is_virtual => 1)->{sierra_upgrade_supported}, 'Sierra rejects below minimum before VM');
+ok(!facts(version => '10.12', is_virtual => 1)->{sierra_upgrade_supported}, 'Sierra rejects already-upgraded VM');
+ok(!facts(version => '10.13')->{sierra_upgrade_supported}, 'Sierra rejects systems above target');
+ok(facts(
+    version => '10.11.6', model => 'unsupported',
+    board_id => 'unsupported', is_virtual => 1,
+)->{sierra_upgrade_supported}, 'Sierra permits an eligible VM');
+ok(!facts(model => 'MacBookPro5,1')->{sierra_upgrade_supported}, 'Sierra rejects original blocked model');
+ok(!facts(board_id => 'unsupported')->{sierra_upgrade_supported}, 'Sierra requires original board table');
+ok(facts(
+    version => '10.11.6', model => 'MacBookPro9,1',
+    board_id => 'Mac-4B7AC7E43945597E',
+)->{sierra_upgrade_supported}, 'Sierra accepts supported model and board combination');
+
 ok(facts(version => '10.7')->{mojave_upgrade_supported}, 'Mojave lower boundary supported');
 ok(facts(version => '10.13.6')->{mojave_upgrade_supported}, 'Mojave upper source boundary supported');
 ok(!facts(version => '10.6.8', is_virtual => 1)->{mojave_upgrade_supported}, 'Mojave rejects below minimum before VM');
@@ -49,6 +65,7 @@ ok(facts(version => '26', hardware_target => 'J180dAP')->{goldengate_upgrade_sup
 ok(!facts(version => '27', hardware_target => 'J180dAP', is_virtual => 1)->{goldengate_upgrade_supported}, 'Goldengate rejects target-version VM');
 
 for my $boundary (
+    ['sierra_upgrade_supported', '10.11', '10.12'],
     ['bigsur_upgrade_supported', '10.15', '11'],
     ['monterey_upgrade_supported', '11', '12'],
     ['ventura_upgrade_supported', '12', '13'],
@@ -92,6 +109,6 @@ my $modern_vm = collect_hardware_snapshot(
 );
 ok($modern_vm->{is_virtual}, 'Big Sur and newer use kern.hv_vmm_present');
 
-is(scalar(keys %{facts()}), 9, 'consolidated evaluator emits nine upgrade facts');
+is(scalar(keys %{facts()}), 10, 'consolidated evaluator emits ten upgrade facts');
 
 done_testing();

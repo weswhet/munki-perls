@@ -35,11 +35,13 @@ my @expected = sort qw(
     gatekeeper_status
     goldengate_upgrade_supported
     local_user_dirs
+    machine_type
     mdm_managed_user
     mojave_upgrade_supported
     monterey_upgrade_supported
     physical_or_virtual
     sequoia_upgrade_supported
+    sierra_upgrade_supported
     sip_status
     sonoma_upgrade_supported
     tahoe_upgrade_supported
@@ -52,12 +54,12 @@ while (my $key = $keys->nextObject()) {
     last unless blessed($key) && $$key;
     push @actual, objc_string($key);
 }
-is_deeply([sort @actual], \@expected, 'complete exact 20-key contract');
+is_deeply([sort @actual], \@expected, 'complete exact 22-key contract');
 
 my %arrays = map { $_ => 1 } qw(admin_users local_user_dirs);
 my %strings = map { $_ => 1 } qw(
     console_user crashplan_username filevault_status gatekeeper_status
-    mdm_managed_user physical_or_virtual sip_status
+    machine_type mdm_managed_user physical_or_virtual sip_status
 );
 for my $key (@expected) {
     my $value = $plist->objectForKey_(foundation_string($key));
