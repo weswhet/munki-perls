@@ -321,13 +321,16 @@ sorted Perl `qw(...)` table.
 `tools/build-pkg.pl` stages the payload with native Perl file APIs and invokes
 only `/usr/bin/pkgbuild`. The tool is Perl 5.8.8-compatible, but packages must
 be built on a newer host that provides `pkgbuild`; Leopard is a supported
-installation target, not a package build host. It creates an unsigned package with identifier
+installation target, not a package build host. By default it creates an unsigned package with identifier
 `com.github.weswhet.munki-perls`, installed at
 `/usr/local/munki/conditions`:
 
 ```sh
 tools/build-pkg.pl --verbose
 tools/build-pkg.pl --version 0.1.42 --output /tmp/munki-perls-0.1.42.pkg
+tools/build-pkg.pl --version 0.1.42 \
+  --sign "Developer ID Installer: Wesley Whetstone (2D8XQ77EBQ)" \
+  --output /tmp/munki-perls-0.1.42.pkg
 ```
 
 After both CI architectures pass, every push to `main` uses the workflow run
