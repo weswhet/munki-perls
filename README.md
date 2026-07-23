@@ -63,8 +63,8 @@ adding an answer does not create a new dialect of “true.”
 | Family | Answers |
 | --- | --- |
 | **People and sessions** | admin users, console user and login state, local home directories, CrashPlan username |
-| **Security and management** | FileVault, Gatekeeper, SIP, Back to My Mac, managed user, enabled system extensions |
-| **Hardware** | physical or virtual, virtual-machine vendor |
+| **Security and management** | FileVault, Gatekeeper, SIP, Back to My Mac, managed user, MDM profile install age, enabled and approved system extensions |
+| **Hardware** | physical or virtual, virtual-machine vendor, stable shard |
 | **Upgrade paths** | Sierra through Goldengate, evaluated against OS version and Apple hardware identifiers |
 
 ### Bundled perl contract
@@ -77,9 +77,13 @@ plugins provide the following keys and native plist types.
 | Key | Native plist type |
 | --- | --- |
 | `admin_users` | array of strings |
+| `approved_system_extension_bundle_ids` | array of strings |
+| `approved_system_extension_team_ids` | array of strings |
+| `approved_system_extensions` | array of strings: `TEAMID:bundle.id` policy keys |
 | `backtomymac_configured` | boolean |
 | `bigsur_upgrade_supported` | boolean |
 | `catalina_upgrade_supported` | boolean |
+| `client_id` | string |
 | `console_user` | string |
 | `console_user_logged_in` | boolean |
 | `crashplan_username` | string |
@@ -87,11 +91,14 @@ plugins provide the following keys and native plist types.
 | `gatekeeper_status` | string |
 | `goldengate_upgrade_supported` | boolean |
 | `local_user_dirs` | array of strings |
+| `mdm_hours_since_install` | integer |
+| `mdm_install_date` | string: UTC ISO 8601 timestamp, or empty when unavailable |
 | `mdm_managed_user` | string |
 | `mojave_upgrade_supported` | boolean |
 | `monterey_upgrade_supported` | boolean |
 | `physical_or_virtual` | string: `physical` or `virtual` |
 | `sequoia_upgrade_supported` | boolean |
+| `shard` | integer: stable value from 1 through 100, or 99 when no hardware identifier is available |
 | `sierra_upgrade_supported` | boolean |
 | `sip_status` | string |
 | `sonoma_upgrade_supported` | boolean |
@@ -106,9 +113,14 @@ Macs and `unknown` when a virtual machine's vendor cannot be determined.
 `physical_or_virtual` retains its simpler two-value domain.
 
 `system_extensions` reads Apple's system-extension database and includes only
-records in the `activated_enabled` state. It is a current usability inventory,
-not a record of whether a user or an MDM policy originally approved an
-extension.
+records in the `activated_enabled` state. The `approved_system_extension_*`
+keys expose approved policy identifiers from the same database, grouped by
+bundle ID, team ID, and combined `TEAMID:bundle.id` keys.
+
+`shard` is derived from the hardware serial number, falling back to the
+platform UUID and then to `99`. It is calculated as `MD5(identifier) % 100 + 1`
+so it is stable across reinstalls without relying on a site-specific persisted
+data source.
 
 The included collection stays focused on broadly useful inventory and
 compatibility answers. Site-specific and community additions can be dropped
