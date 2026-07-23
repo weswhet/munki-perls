@@ -9,6 +9,7 @@ use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
 use MunkiPerls qw(foundation_string load_plist_file objc_string);
+use MunkiPerls::Plugins qw(run_plugins_condition);
 
 my @executables = grep { -x $_ } sort glob('conditions/*.pl');
 is_deeply(
@@ -25,9 +26,12 @@ for my $plugin (@plugins) {
 
 my $directory = tempdir(CLEANUP => 1);
 my $output = "$directory/ConditionalItems.plist";
-my $status = system {
-    $^X
-} $^X, 'conditions/munki_perls.pl', '--output', $output;
+my $status = run_plugins_condition(
+    ['--output', $output],
+    plugin_dir => 'conditions/perls',
+    preference_loader => sub { return {} },
+    config_path => "$directory/missing-config.plist",
+);
 is($status, 0, 'the discovery runner collects bundled plugins');
 
 my $plist = load_plist_file($output, dictionary => 1);

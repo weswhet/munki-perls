@@ -17,11 +17,13 @@ my $identifier = 'com.github.weswhet.munki-perls';
 my $version = '0.1.0';
 my $install_location = '/usr/local/munki/conditions';
 my $output;
+my $sign;
 my $verbose = 0;
 my $help = 0;
 GetOptions(
     'version=s' => \$version,
     'output=s' => \$output,
+    'sign=s' => \$sign,
     'verbose' => \$verbose,
     'help' => \$help,
 ) or usage(2);
@@ -41,8 +43,6 @@ $output = File::Spec->catfile(abs_path($output_parent), basename($output));
 
 my $source = abs_path(File::Spec->catdir($FindBin::Bin, '..', 'conditions'));
 die "Conditions payload is missing\n" unless defined $source && -d $source;
-my $scripts = abs_path(File::Spec->catdir($FindBin::Bin, 'pkg-scripts'));
-die "Package scripts are missing\n" unless defined $scripts && -d $scripts;
 my $workspace = tempdir('munki-perls-pkg-XXXXXX', TMPDIR => 1, CLEANUP => 1);
 my $staging = File::Spec->catdir($workspace, 'payload');
 mkpath($staging, 0, 0755);
@@ -74,10 +74,13 @@ my @command = (
     '--identifier', $identifier,
     '--version', $version,
     '--install-location', $install_location,
-    '--scripts', $scripts,
-    $output,
 );
-print STDERR "Building unsigned $name $version package\n" if $verbose;
+push @command, '--sign', $sign if defined $sign;
+push @command, $output;
+if ($verbose) {
+    my $description = defined $sign ? "signed with $sign" : 'unsigned';
+    print STDERR "Building $description $name $version package\n";
+}
 local $ENV{COPYFILE_DISABLE} = 1;
 my $status = system { $command[0] } @command;
 die "pkgbuild could not be started\n" if $status == -1;
@@ -107,6 +110,6 @@ sub copy_file {
 
 sub usage {
     my ($status) = @_;
-    print "Usage: $0 [--version VERSION] [--output PATH] [--verbose] [--help]\n";
+    print "Usage: $0 [--version VERSION] [--output PATH] [--sign IDENTITY] [--verbose] [--help]\n";
     exit $status;
 }

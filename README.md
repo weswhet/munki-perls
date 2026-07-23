@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <a href="https://weswhet.github.io/munki-perls/"><strong>Website and quickstart</strong></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/weswhet/munki-perls/actions/workflows/test.yml"><img src="https://github.com/weswhet/munki-perls/actions/workflows/test.yml/badge.svg" alt="Test status"></a>
   <a href="https://github.com/weswhet/munki-perls/releases/latest"><img src="https://img.shields.io/github/v/release/weswhet/munki-perls?label=release" alt="Latest release"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-Apache--2.0-6f5bd3" alt="Apache 2.0 license"></a>
@@ -135,19 +139,12 @@ sudo /usr/sbin/installer -pkg munki-perls-0.1.N.pkg -target /
 The package installs one executable runner, its shared modules, and the bundled
 non-executable plugins at `/usr/local/munki/conditions`.
 
-To install directly from a checkout, first remove the retired bundled
-executables from older releases, then preserve modes while copying the new
-layout:
+To install directly from a checkout, preserve modes while copying the layout:
 
 ```sh
-sudo tools/pkg-scripts/postinstall
 sudo /bin/mkdir -p /usr/local/munki/conditions
 sudo /usr/bin/ditto conditions /usr/local/munki/conditions
 ```
-
-The cleanup script names only files previously owned by this project. It does
-not remove unrelated top-level conditions or custom plugins. Package upgrades
-run the same cleanup automatically.
 
 Munki executes `munki_perls.pl` and ignores the `perls` directory. The runner
 loads every valid plugin and writes their combined output to the configured
@@ -171,6 +168,68 @@ Runner diagnostics identify the plugin and failure stage without printing its
 returned values. Plugin authors should likewise keep sensitive values out of
 exceptions. Missing commands on older systems yield the established `Unknown`
 or `NONE` fallback and allow the remaining plugins to continue with their day.
+
+### Selecting plugins
+
+Managed preferences in the persistent `org.munki.perls` domain can prevent
+unneeded plugins from being loaded or run. The domain accepts two optional
+array-of-string keys. The same keys may instead be placed in the fixed local
+file `/usr/local/munki/conditions/perls/config.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>included_perls</key>
+<array>
+    <string>console_user</string>
+    <string>virtual_type.pl</string>
+</array>
+</dict>
+</plist>
+```
+
+- When `included_perls` is present, only its valid, installed entries run and
+  `excluded_perls` is ignored completely. A present but empty include array
+  runs no plugins.
+- When only `excluded_perls` is present, all plugins except its valid,
+  installed entries run. A present but empty exclude array runs all plugins.
+- With neither key present, all plugins run.
+
+Entries are case-sensitive plugin filename stems; the `.pl` suffix is
+optional. Selection applies to the plugin file, so a custom plugin returning
+several keys is included or excluded as one unit. Duplicate entries have no
+additional effect.
+
+Selection sources are resolved in this order: `--only`, managed preferences
+when either recognized key exists, then `perls/config.plist`, then all plugins.
+`--only` bypasses both configuration sources. A readable preference domain
+without either key allows the local file to be used; unrelated plist keys are
+ignored. Existing managed-preference deployments therefore remain
+authoritative without migration.
+
+The runner skips and diagnoses invalid containers, non-string, empty, or
+unsafe entries, and names that do not match an installed plugin. It does not
+echo unsafe values or any values returned by plugins. The selected mode remains
+authoritative: for example, an invalid `included_perls` value does not make the
+runner fall back to loading every plugin. If preferences cannot be read, the
+local file is tried. A missing or keyless local file is no configuration and
+runs all plugins. An unsafe, unreadable, malformed, or non-dictionary file is
+diagnosed and ignored. XML and binary property lists are accepted through
+Foundation. With `--verbose` or `MUNKI_PERLS_DEBUG=1`, diagnostics identify the
+active source and report the mode and matched/skipped plugin counts.
+
+The local file must be a regular file, not a symlink, owned by the same account
+that runs the condition (normally `root`), and not writable by group or others.
+Deploy it without relying on the package, which deliberately does not ship or
+overwrite one:
+
+```sh
+sudo /usr/bin/install -o root -g wheel -m 0644 config.plist \
+  /usr/local/munki/conditions/perls/config.plist
+```
 
 ## Adding a plugin
 
@@ -279,6 +338,17 @@ always false on Catalina and newer, which settled that question rather neatly.
 
 ## Maintainer tools
 
+The project website lives in `site/` and builds to the ignored `dist/`
+directory. It uses a pinned Tailwind toolchain and project-relative asset URLs:
+
+```sh
+npm ci
+npm run dev       # local server with CSS watching
+npm run build     # production output
+npm run check     # output, URL, and ES5 fallback checks
+npm run preview   # serve the production output
+```
+
 `tools/extract_supported_devices.pl` reads an installer asset plist with
 Foundation, validates and deduplicates `SupportedDeviceModels`, and prints a
 sorted Perl `qw(...)` table.
@@ -286,13 +356,16 @@ sorted Perl `qw(...)` table.
 `tools/build-pkg.pl` stages the payload with native Perl file APIs and invokes
 only `/usr/bin/pkgbuild`. The tool is Perl 5.8.8-compatible, but packages must
 be built on a newer host that provides `pkgbuild`; Leopard is a supported
-installation target, not a package build host. It creates an unsigned package with identifier
+installation target, not a package build host. By default it creates an unsigned package with identifier
 `com.github.weswhet.munki-perls`, installed at
 `/usr/local/munki/conditions`:
 
 ```sh
 tools/build-pkg.pl --verbose
 tools/build-pkg.pl --version 0.1.42 --output /tmp/munki-perls-0.1.42.pkg
+tools/build-pkg.pl --version 0.1.42 \
+  --sign "Developer ID Installer: Wesley Whetstone (2D8XQ77EBQ)" \
+  --output /tmp/munki-perls-0.1.42.pkg
 ```
 
 After both CI architectures pass, every push to `main` uses the workflow run
@@ -306,8 +379,7 @@ Run the syntax and test suites with Apple's Perl:
 
 ```sh
 find conditions tools t -type f \
-  \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \
-    -o -name postinstall \) \
+  \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) \
   -exec /usr/bin/perl -Iconditions/lib -c {} \;
 /usr/bin/prove -lr t
 ```

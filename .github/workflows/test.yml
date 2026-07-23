@@ -34,8 +34,7 @@ jobs:
           while IFS= read -r file; do
             /usr/bin/perl -Iconditions/lib -c "$file"
           done < <(find conditions tools t -type f \
-            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \
-              -o -name 'postinstall' \) -print)
+            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) -print)
       - name: Test
         run: /usr/bin/prove -lr t
       - name: Build and inspect package
@@ -111,8 +110,7 @@ jobs:
           while IFS= read -r file; do
             "$PERL588" -Iconditions/lib -c "$file"
           done < <(find conditions tools t -type f \
-            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \
-              -o -name 'postinstall' \) -print)
+            \( -name '*.pl' -o -name '*.pm' -o -name '*.t' \) -print)
       - name: Run Foundation-independent tests
         run: |
           "$PERL588" "$RUNNER_TEMP/perl-5.8.8/bin/prove" -lv \
@@ -132,11 +130,46 @@ jobs:
           version="0.1.${GITHUB_RUN_NUMBER}"
           printf 'version=%s\ntag=v%s\npackage=%s/munki-perls-%s.pkg\n' \
             "$version" "$version" "$RUNNER_TEMP" "$version" >> "$GITHUB_OUTPUT"
+      - name: Import package signing certificate
+        env:
+          INSTALLER_CERTIFICATE_P12: ${{ secrets.INSTALLER_CERTIFICATE_P12 }}
+          INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.INSTALLER_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/package-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          certificate="$RUNNER_TEMP/installer-certificate.p12"
+          printf '%s' "$INSTALLER_CERTIFICATE_P12" | base64 --decode > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" \
+            -k "$keychain" \
+            -P "$INSTALLER_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/pkgbuild \
+            -T /usr/bin/productsign
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$keychain_password" \
+            "$keychain"
+          security list-keychains -d user -s "$keychain"
+          rm -f "$certificate"
       - name: Build release package
         run: |
           tools/build-pkg.pl \
             --version "${{ steps.release.outputs.version }}" \
+            --sign "Developer ID Installer: Wesley Whetstone (2D8XQ77EBQ)" \
             --output "${{ steps.release.outputs.package }}"
+      - name: Verify release package signature
+        run: |
+          signature="$(pkgutil --check-signature "${{ steps.release.outputs.package }}")"
+          printf '%s\n' "$signature"
+          grep -Fq \
+            "Developer ID Installer: Wesley Whetstone (2D8XQ77EBQ)" \
+            <<< "$signature"
+      - name: Remove package signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/package-signing.keychain-db"
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

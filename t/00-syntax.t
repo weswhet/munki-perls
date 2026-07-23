@@ -9,7 +9,7 @@ my @files;
 find(
     sub {
         push @files, $File::Find::name
-            if -f $_ && (/\.(?:pl|pm|t)\z/ || $_ eq 'postinstall');
+            if -f $_ && /\.(?:pl|pm|t)\z/;
     },
     'conditions', 'tools', 't'
 );

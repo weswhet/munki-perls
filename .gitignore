@@ -1,2 +1,4 @@
 *.pkg
 .prove
+dist/
+node_modules/

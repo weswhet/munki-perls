@@ -52,6 +52,13 @@ for my $file (sort @project_files) {
         my $approved = $file eq 'README.md'
             && lc($candidate) eq $approved_upstream_name
             && $after !~ /[A-Za-z0-9_-]/;
+        if (!$approved && $file eq '.github/workflows/pages.yml') {
+            my $line_start = rindex($source, "\n", $start) + 1;
+            my $line_end = index($source, "\n", $start);
+            $line_end = length($source) if $line_end < 0;
+            my $line = substr($source, $line_start, $line_end - $line_start);
+            $approved = $line =~ m{actions/upload-pages-arti$retired_term\@v4};
+        }
         ok($approved, "$file uses only the approved upstream project name");
     }
 }
@@ -60,7 +67,7 @@ my @files;
 find(
     sub {
         push @files, $File::Find::name
-            if -f $_ && (/\.(?:pl|pm)\z/ || $_ eq 'postinstall');
+            if -f $_ && /\.(?:pl|pm)\z/;
     },
     'conditions', 'tools'
 );
