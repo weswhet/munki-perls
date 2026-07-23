@@ -9,7 +9,10 @@ use Scalar::Util qw(blessed);
 use Test::More 'no_plan';
 use lib 'conditions/lib';
 use Foundation;
-use MunkiPerls qw(foundation_string load_plist_file objc_string);
+use MunkiPerls qw(
+    foundation_array foundation_dictionary foundation_string load_plist_file
+    objc_string write_plist_file
+);
 use MunkiPerls::Plugins qw(
     collect_plugins discover_plugins load_plugin run_plugins_condition
 );
@@ -336,6 +339,30 @@ sub marker_text {
     return $text;
 }
 
+my $config_path = "$selection_directory/config.plist";
+
+sub write_selection_config {
+    my ($values) = @_;
+    unlink $config_path if -e $config_path || -l $config_path;
+    my $root = foundation_dictionary();
+    for my $key (keys %{$values}) {
+        my $value = $values->{$key};
+        if (ref($value) eq 'ARRAY') {
+            my $array = foundation_array();
+            for my $entry (@{$value}) {
+                $array->addObject_(foundation_string($entry));
+            }
+            $root->setObject_forKey_($array, foundation_string($key));
+        } else {
+            $root->setObject_forKey_(
+                foundation_string($value), foundation_string($key)
+            );
+        }
+    }
+    ok(write_plist_file($config_path, $root, 100), 'writes selection config plist');
+    chmod 0644, $config_path or die $!;
+}
+
 my @selection_diagnostics;
 my $selected = selected_perls({}, \@selection_diagnostics, verbose => 1);
 is_deeply(
@@ -348,6 +375,117 @@ like(
     qr{plugin selection mode all: 3 matched, 0 skipped},
     'verbose diagnostics report all-mode counts'
 );
+like(
+    join("\n", @selection_diagnostics),
+    qr{plugin selection source: no configuration},
+    'verbose diagnostics identify the no-configuration source'
+);
+
+@selection_diagnostics = ();
+write_selection_config({ included_perls => ['alpha', 'alpha.pl', 'unknown'] });
+$selected = selected_perls({}, \@selection_diagnostics, verbose => 1);
+is_deeply([sort keys %{$selected}], ['alpha'], 'a real local plist selects included plugins');
+like(join("\n", @selection_diagnostics), qr{plugin selection source: config\.plist}, 'verbose diagnostics identify config.plist');
+unlike(marker_text(), qr{custom_site:(?:load|call)|zulu:(?:load|call)}, 'plist-omitted plugins are never loaded or invoked');
+
+@selection_diagnostics = ();
+write_selection_config({ excluded_perls => ['custom_site'] });
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], [qw(alpha zulu)], 'a real local plist excludes plugins');
+unlike(marker_text(), qr{custom_site:(?:load|call)}, 'plist-excluded plugins are never loaded or invoked');
+
+@selection_diagnostics = ();
+write_selection_config({ included_perls => [], excluded_perls => ['alpha'] });
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply($selected, {}, 'local plist include wins and an empty include selects none');
+
+@selection_diagnostics = ();
+write_selection_config({ excluded_perls => [] });
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], [qw(alpha custom_one custom_two zulu)], 'an empty local exclude selects all');
+
+@selection_diagnostics = ();
+write_selection_config({ included_perls => 'alpha' });
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply($selected, {}, 'an invalid local include container remains authoritative');
+like(join("\n", @selection_diagnostics), qr{included_perls must be an array of strings}, 'an invalid local container is diagnosed');
+
+@selection_diagnostics = ();
+write_selection_config({ included_perls => ['alpha', '', '../zulu', 'unknown', 'unknown.pl'] });
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], ['alpha'], 'invalid, duplicate, and unknown local plist entries are skipped');
+
+@selection_diagnostics = ();
+write_selection_config({ included_perls => ['alpha'] });
+$selected = selected_perls({ included_perls => ['zulu'] }, \@selection_diagnostics, verbose => 1);
+is_deeply([sort keys %{$selected}], ['zulu'], 'managed preferences override config.plist');
+like(join("\n", @selection_diagnostics), qr{plugin selection source: preferences}, 'verbose diagnostics identify preferences');
+
+write_selection_config({ included_perls => ['zulu'] });
+unlink $marker if -e $marker;
+$selected = collect_plugins(
+    $selection_directory,
+    {},
+    only => 'alpha',
+    preference_loader => sub { die "must not read preferences\n" },
+);
+is_deeply([sort keys %{$selected}], ['alpha'], '--only bypasses preferences and config.plist');
+unlike(marker_text(), qr{zulu:(?:load|call)}, '--only does not load the plist-selected plugin');
+
+@selection_diagnostics = ();
+$selected = selected_perls({}, \@selection_diagnostics, fail => 1);
+is_deeply([sort keys %{$selected}], ['zulu'], 'preference-read failure falls back to config.plist');
+like(join("\n", @selection_diagnostics), qr{preferences could not be read; trying config\.plist: preference bridge failed}, 'preference failure fallback is diagnosed');
+
+@selection_diagnostics = ();
+write_selection_config({ unrelated => ['alpha'] });
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], [qw(alpha custom_one custom_two zulu)], 'a keyless plist behaves as no configuration');
+
+unlink $config_path or die $!;
+open(my $malformed, '>', $config_path) or die $!;
+print {$malformed} 'not a plist';
+close $malformed or die $!;
+chmod 0644, $config_path or die $!;
+@selection_diagnostics = ();
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], [qw(alpha custom_one custom_two zulu)], 'a malformed plist is ignored');
+like(join("\n", @selection_diagnostics), qr{config\.plist ignored:.*malformed or is not a dictionary}, 'a malformed plist is diagnosed');
+
+my $non_dictionary = foundation_array();
+ok(write_plist_file($config_path, $non_dictionary, 100), 'writes non-dictionary config plist');
+chmod 0644, $config_path or die $!;
+@selection_diagnostics = ();
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], [qw(alpha custom_one custom_two zulu)], 'a non-dictionary plist is ignored');
+like(join("\n", @selection_diagnostics), qr{not a dictionary}, 'a non-dictionary plist is diagnosed');
+
+write_selection_config({ included_perls => ['alpha'] });
+chmod 0666, $config_path or die $!;
+@selection_diagnostics = ();
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], [qw(alpha custom_one custom_two zulu)], 'a writable config plist is ignored');
+like(join("\n", @selection_diagnostics), qr{config\.plist ignored:.*writable by group or others}, 'a writable config plist is diagnosed');
+
+SKIP: {
+    skip 'unreadable file behavior is not meaningful as root', 2 if $> == 0;
+    chmod 0000, $config_path or die $!;
+    @selection_diagnostics = ();
+    $selected = selected_perls({}, \@selection_diagnostics);
+    is_deeply([sort keys %{$selected}], [qw(alpha custom_one custom_two zulu)], 'an unreadable config plist is ignored');
+    like(join("\n", @selection_diagnostics), qr{config\.plist ignored:.*not readable}, 'an unreadable config plist is diagnosed');
+}
+
+chmod 0644, $config_path or die $!;
+my $config_target = "$selection_directory/config-target.plist";
+rename($config_path, $config_target) or die $!;
+symlink($config_target, $config_path) or die $!;
+@selection_diagnostics = ();
+$selected = selected_perls({}, \@selection_diagnostics);
+is_deeply([sort keys %{$selected}], [qw(alpha custom_one custom_two zulu)], 'a symlinked config plist is ignored');
+like(join("\n", @selection_diagnostics), qr{config\.plist ignored:.*symbolic link}, 'a symlinked config plist is diagnosed');
+unlink $config_path or die $!;
+unlink $config_target or die $!;
 
 @selection_diagnostics = ();
 $selected = selected_perls(
@@ -456,11 +594,7 @@ is_deeply(
     [qw(alpha custom_one custom_two zulu)],
     'a preference read failure preserves the run-all fallback'
 );
-like(
-    join("\n", @selection_diagnostics),
-    qr{preferences could not be read; using all plugins: preference bridge failed},
-    'preference read failures are diagnosed without stopping collection'
-);
+like(join("\n", @selection_diagnostics), qr{preferences could not be read; trying config\.plist: preference bridge failed}, 'preference read failures are diagnosed without stopping collection');
 
 my $missing_directory = "$directory/not-a-directory";
 my $missing_error = eval { discover_plugins($missing_directory); 1 };

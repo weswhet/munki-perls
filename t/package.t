@@ -70,6 +70,11 @@ like(
     qr{\./lib/MunkiPerls/Plugins\.pm\s+100644\b},
     'package contains the plugin runtime'
 );
+unlike(
+    $listing,
+    qr{\./perls/config\.plist\b},
+    'package does not contain a default plugin configuration'
+);
 
 ok(
     !-e "$expanded/Scripts/postinstall",

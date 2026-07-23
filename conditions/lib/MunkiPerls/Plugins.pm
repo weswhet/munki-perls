@@ -11,8 +11,8 @@ use Getopt::Long qw(GetOptions);
 use Scalar::Util qw(blessed);
 
 use MunkiPerls qw(
-    foundation_string managed_install_dir objc_string validate_perls
-    write_perls
+    foundation_string load_plist_file managed_install_dir objc_string
+    validate_perls write_perls
 );
 
 our @EXPORT_OK = qw(
@@ -58,6 +58,31 @@ sub _load_preferences {
         $preferences{$key} = _preference_value($value);
     }
     return \%preferences;
+}
+
+sub _has_selection_keys {
+    my ($configuration) = @_;
+    return ref($configuration) eq 'HASH'
+        && (exists($configuration->{included_perls})
+            || exists($configuration->{excluded_perls}));
+}
+
+sub _load_config_plist {
+    my ($path) = @_;
+    _safe_path($path, 'Configuration file');
+    die "Configuration file is not readable: $path\n" unless -r $path;
+
+    my $dictionary = load_plist_file($path, dictionary => 1);
+    die "Configuration file is malformed or is not a dictionary: $path\n"
+        unless _valid_object($dictionary);
+
+    my %configuration;
+    for my $key (qw(included_perls excluded_perls)) {
+        my $value = $dictionary->objectForKey_(foundation_string($key));
+        next unless _valid_object($value);
+        $configuration{$key} = _preference_value($value);
+    }
+    return \%configuration;
 }
 
 sub _owner_uid {
@@ -230,15 +255,47 @@ sub collect_plugins {
     } else {
         my $loader = $options{preference_loader} || \&_load_preferences;
         my $preferences = eval { $loader->() };
-        if (!$preferences || $@) {
+        my $preference_error = $@;
+        my $configuration;
+        my $source;
+        if (!$preference_error && _has_selection_keys($preferences)) {
+            $configuration = $preferences;
+            $source = 'preferences';
+        } else {
+            if ($preference_error) {
+                $diagnostic->(
+                    'preferences could not be read; trying config.plist: '
+                        . _diagnostic_text($preference_error)
+                );
+            }
+            my $config_path = $options{config_path};
+            $config_path = File::Spec->catfile($directory, 'config.plist')
+                unless defined $config_path;
+            if (-e $config_path || -l $config_path) {
+                my $local = eval { _load_config_plist($config_path) };
+                my $config_error = $@;
+                if ($config_error) {
+                    $diagnostic->(
+                        'config.plist ignored: '
+                            . _diagnostic_text($config_error)
+                    );
+                } elsif (_has_selection_keys($local)) {
+                    $configuration = $local;
+                    $source = 'config.plist';
+                }
+            }
+        }
+        if (!$configuration) {
+            $configuration = {};
+            $source = 'no configuration';
+        }
+        if ($options{verbose}) {
             $diagnostic->(
-                'preferences could not be read; using all plugins: '
-                    . _diagnostic_text($@)
+                "plugin selection source: $source"
             );
-            $preferences = {};
         }
         @paths = _select_plugins(
-            \@paths, $preferences, $diagnostic, $options{verbose}
+            \@paths, $configuration, $diagnostic, $options{verbose}
         );
     }
 
@@ -330,6 +387,7 @@ sub run_plugins_condition {
             { output_path => $output },
             diagnostic => $diagnostic,
             only => $only,
+            config_path => $options{config_path},
             preference_loader => $options{preference_loader},
             verbose => $debug,
         );

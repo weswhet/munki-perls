@@ -157,18 +157,26 @@ returned values. Plugin authors should likewise keep sensitive values out of
 exceptions. Missing commands on older systems yield the established `Unknown`
 or `NONE` fallback and allow the remaining plugins to continue with their day.
 
-### Selecting plugins with preferences
+### Selecting plugins
 
 Managed preferences in the persistent `org.munki.perls` domain can prevent
 unneeded plugins from being loaded or run. The domain accepts two optional
-array-of-string keys:
+array-of-string keys. The same keys may instead be placed in the fixed local
+file `/usr/local/munki/conditions/perls/config.plist`:
 
 ```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
 <key>included_perls</key>
 <array>
     <string>console_user</string>
     <string>virtual_type.pl</string>
 </array>
+</dict>
+</plist>
 ```
 
 - When `included_perls` is present, only its valid, installed entries run and
@@ -183,18 +191,33 @@ optional. Selection applies to the plugin file, so a custom plugin returning
 several keys is included or excluded as one unit. Duplicate entries have no
 additional effect.
 
+Selection sources are resolved in this order: `--only`, managed preferences
+when either recognized key exists, then `perls/config.plist`, then all plugins.
+`--only` bypasses both configuration sources. A readable preference domain
+without either key allows the local file to be used; unrelated plist keys are
+ignored. Existing managed-preference deployments therefore remain
+authoritative without migration.
+
 The runner skips and diagnoses invalid containers, non-string, empty, or
 unsafe entries, and names that do not match an installed plugin. It does not
 echo unsafe values or any values returned by plugins. The selected mode remains
 authoritative: for example, an invalid `included_perls` value does not make the
-runner fall back to loading every plugin. If the preference domain itself
-cannot be read, the no-configuration behavior of running all plugins is
-preserved. With `--verbose` or `MUNKI_PERLS_DEBUG=1`, diagnostics also report
-the active mode and matched/skipped plugin counts.
+runner fall back to loading every plugin. If preferences cannot be read, the
+local file is tried. A missing or keyless local file is no configuration and
+runs all plugins. An unsafe, unreadable, malformed, or non-dictionary file is
+diagnosed and ignored. XML and binary property lists are accepted through
+Foundation. With `--verbose` or `MUNKI_PERLS_DEBUG=1`, diagnostics identify the
+active source and report the mode and matched/skipped plugin counts.
 
-The command-line `--only NAME` option is intended for direct testing and takes
-precedence over preferences. When it is supplied, the preference domain is not
-read.
+The local file must be a regular file, not a symlink, owned by the same account
+that runs the condition (normally `root`), and not writable by group or others.
+Deploy it without relying on the package, which deliberately does not ship or
+overwrite one:
+
+```sh
+sudo /usr/bin/install -o root -g wheel -m 0644 config.plist \
+  /usr/local/munki/conditions/perls/config.plist
+```
 
 ## Adding a plugin
 

@@ -146,15 +146,21 @@
             <button class="copy-button" type="button" data-copy="install-command">Copy command</button>
           </div>
           <h3>Choose only the perls you need</h3>
+          <p>Use managed <code>org.munki.perls</code> preferences, or place the same dictionary in <code>perls/config.plist</code>:</p>
           <div class="code-wrap">
-            <pre><code id="preference-example">&lt;key&gt;included_perls&lt;/key&gt;
+            <pre><code id="preference-example">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;plist version="1.0"&gt;
+&lt;dict&gt;
+&lt;key&gt;included_perls&lt;/key&gt;
 &lt;array&gt;
     &lt;string&gt;console_user&lt;/string&gt;
     &lt;string&gt;virtual_type.pl&lt;/string&gt;
-&lt;/array&gt;</code></pre>
+&lt;/array&gt;
+&lt;/dict&gt;
+&lt;/plist&gt;</code></pre>
             <button class="copy-button" type="button" data-copy="preference-example">Copy example</button>
           </div>
-          <p class="micro">No preferences? Every installed plugin runs.</p>
+          <p class="micro">Managed preferences take precedence. With neither selection source, every installed plugin runs.</p>
         </div>
       </div>
     </section>
